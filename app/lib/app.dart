@@ -13,8 +13,8 @@ import 'features/splash/splash_screen.dart';
 
 /// Root widget: owns the global blocs and rebuilds the theme when settings
 /// change.
-class IboPlayerApp extends StatelessWidget {
-  const IboPlayerApp({super.key});
+class ReIptvApp extends StatelessWidget {
+  const ReIptvApp({super.key});
 
   @override
   Widget build(BuildContext context) {

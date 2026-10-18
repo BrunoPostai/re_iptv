@@ -10,7 +10,7 @@ Usage:
     python tools/extract_strings.py <binary> [--min 5] [--grep PATTERN] [--urls]
 
 Examples:
-    python tools/extract_strings.py "C:/Program Files (x86)/Ibo Player/data/app.so" --grep player_api
+    python tools/extract_strings.py "<install root>/data/app.so" --grep player_api
     python tools/extract_strings.py data/app.so --urls --min 12
 """
 

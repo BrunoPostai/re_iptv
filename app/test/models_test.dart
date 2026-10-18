@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ibo_player/data/models/models.dart';
+import 'package:re_iptv/data/models/models.dart';
 
 void main() {
   group('Playlist model', () {

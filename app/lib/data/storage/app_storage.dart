@@ -10,11 +10,13 @@ import '../models/models.dart';
 
 /// Local persistence.
 ///
-/// Layout mirrors the observed original schema:
-///  * one settings box: `hive-ibo-tv-box`
-///  * one content cache box per playlist: `ibo-tv-<id>`
+/// Layout follows the observed original structure under this project's own
+/// neutral names:
+///  * one settings box: `hive-re-iptv-box`
+///  * one content cache box per playlist: `re-iptv-<id>`
 ///
-/// Both live in `<support>/localData`, alongside the cache of the original.
+/// Both live in `<support>/localData`, the same directory shape the original
+/// used.
 class AppStorage {
   AppStorage();
 

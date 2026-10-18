@@ -6,10 +6,10 @@ reproducible and the placeholder assets regenerable.
 
 | Tool | What it does | Run |
 |---|---|---|
-| `make_branding.py` | regenerates the neutral placeholder logo and backgrounds into `ibo_player/assets/branding/` | `python tools/make_branding.py` |
+| `make_branding.py` | regenerates the neutral placeholder logo and backgrounds into `app/assets/branding/` | `python tools/make_branding.py` |
 | `make_plugin_junctions.ps1` | creates the Windows plugin links as junctions, so a build works without Developer Mode | `powershell -ExecutionPolicy Bypass -File tools/make_plugin_junctions.ps1` |
 | `extract_strings.py` | prints printable strings from a local binary (filterable), used to recover class paths, endpoints and asset names | `python tools/extract_strings.py <binary> --grep player_api` |
-| `ibo_player/tool/hive_dump.dart` | prints a Hive box (settings or per-playlist content) as JSON, read-only | `cd ibo_player && dart run tool/hive_dump.dart <dir> <box>` |
+| `app/tool/hive_dump.dart` | prints a Hive box (settings or per-playlist content) as JSON, read-only | `cd app && dart run tool/hive_dump.dart <dir> <box>` |
 
 ## `make_branding.py`
 
@@ -47,10 +47,13 @@ app. Opens an existing box by name, prints keys or the full contents as JSON, an
 refuses to create a box that does not exist.
 
 ```powershell
-cd ibo_player
-dart run tool/hive_dump.dart "$env:APPDATA\com.example\ibo_tv\localData" --help
-dart run tool/hive_dump.dart "$env:APPDATA\com.example\ibo_tv\localData" hive-ibo-tv-box --keys
+cd app
+dart run tool/hive_dump.dart "$env:APPDATA\com.reiptv\re_iptv\localData" --help
+dart run tool/hive_dump.dart "$env:APPDATA\com.reiptv\re_iptv\localData" hive-re-iptv-box --keys
 ```
+
+Pass the folder that holds the `.hive` files — this app's own is
+`%APPDATA%\com.reiptv\re_iptv\localData`.
 
 > The settings box holds playlist credentials in plaintext (as in the original).
 > Treat any dump as sensitive: never commit it, and prefer `--keys` when you only

@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ibo_player/data/models/models.dart';
-import 'package:ibo_player/data/sources/playlist_source.dart';
+import 'package:re_iptv/data/models/models.dart';
+import 'package:re_iptv/data/sources/playlist_source.dart';
 
 /// Serves a canned body for every request, so the sources can be exercised
 /// without a network.

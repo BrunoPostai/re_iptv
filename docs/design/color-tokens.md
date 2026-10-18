@@ -6,7 +6,7 @@ small gold/orange/blue palette, and cards with a 1 px translucent border.
 
 ## Palette
 
-Declared in `ibo_player/lib/core/theme/app_theme.dart` as `AppColors`.
+Declared in `app/lib/core/theme/app_theme.dart` as `AppColors`.
 
 | Token | Value | Used for |
 |---|---|---|

@@ -6,7 +6,7 @@
 |---|---|---|
 | Product version 1.0.4 | shipped `.env` (`APP_VERSION`), in-app title bar | high |
 | Flutter / Dart AOT | `data/app.so` is an ELF64 AOT snapshot next to `flutter_windows.dll` and `icudtl.dat` | high |
-| Source file/class layout (`views/`, `blocs/`, …) | `package:ibo_tv/...` paths present as string constants in the snapshot | high for names, medium for roles |
+| Source file/class layout (`views/`, `blocs/`, …) | `package:<original>/...` paths present as string constants in the snapshot | high for names, medium for roles |
 | Third-party packages | package-specific symbols/strings in the snapshot + bundled `libmpv-2.dll` | high |
 | Xtream request shapes | URL templates and `action=` names as string constants; response fields confirmed against the models that consume them | high |
 | Vendor-only endpoint paths | string constants (`/playlist_info`, `/device/playlists`, …) | medium — presence is certain, usage order is inferred |
@@ -54,17 +54,17 @@ as an endorsement.
 The techniques used are all local and non-invasive:
 
 ```powershell
-# strings / endpoint paths from the compiled snapshot
-python tools/extract_strings.py "C:\Program Files (x86)\Ibo Player\data\app.so" --grep player_api
+# strings / endpoint paths from the compiled snapshot of the original
+python tools/extract_strings.py "<install root>\data\app.so" --grep player_api
 
-# inspect a Hive box (from inside the Flutter package)
-cd ibo_player
-dart run tool/hive_dump.dart "%APPDATA%\com.example\ibo_tv\localData" hive-ibo-tv-box --keys
+# inspect this app's own database (from inside the Flutter package)
+cd app
+dart run tool/hive_dump.dart "%APPDATA%\com.reiptv\re_iptv\localData" hive-re-iptv-box --keys
 ```
 
 `tool/hive_dump.dart` opens a box read-only and prints it as JSON, which is also
-the quickest way to confirm that the recreation reads an existing database
-correctly. Treat any output as **sensitive**: it can contain credentials.
+the quickest way to confirm that the recreation stores the schema it documents.
+Treat any output as **sensitive**: it can contain credentials.
 
 ## Verification status of the recreation
 

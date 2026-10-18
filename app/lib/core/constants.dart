@@ -1,18 +1,18 @@
 /// Hive box names and store keys.
 ///
-/// The key names intentionally mirror the schema observed in the
-/// original application's local database (see docs/analysis/04-storage-schema.md)
-/// so that the recreation is behaviourally comparable. They are plain schema
-/// identifiers, not vendor content.
+/// The **key names** mirror the schema observed in the original application's
+/// local database (see docs/analysis/04-storage-schema.md) so that the two are
+/// behaviourally comparable — they are plain schema identifiers, not vendor
+/// content. The **box file names** carry this project's own neutral prefix.
 class HiveBoxes {
   /// Global settings / playlists / localisation table.
-  static const settings = 'hive-ibo-tv-box';
+  static const settings = 'hive-re-iptv-box';
 
   /// One content cache box per playlist, keyed by playlist id.
-  static String content(String playlistId) => 'ibo-tv-$playlistId';
+  static String content(String playlistId) => 're-iptv-$playlistId';
 
   /// Content box of the bundled demo playlist (`content('demo')`).
-  static const demo = 'ibo-tv-demo';
+  static const demo = 're-iptv-demo';
 }
 
 class StoreKeys {

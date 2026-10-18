@@ -8,21 +8,21 @@ re-scope the app **without editing Dart code**, and your changes survive a
 
 At startup `AppConfig.load()` deep-merges, in this order (later wins):
 
-1. `ibo_player/assets/config/app_config.json` — tracked defaults
+1. `app/assets/config/app_config.json` — tracked defaults
 2. `<app data>/app_config.local.json` — **not tracked** (highest priority in a
    normal build)
-3. `ibo_player/assets/config/app_config.local.json` — optional tracked-or-local
+3. `app/assets/config/app_config.local.json` — optional tracked-or-local
    asset overlay
 
 The app data folder on Windows is
-`%APPDATA%\com.reiptv\ibo_player\app_config.local.json` (`getApplicationSupportDirectory()`).
+`%APPDATA%\com.reiptv\re_iptv\app_config.local.json` (`getApplicationSupportDirectory()`).
 Putting the file there means you can tweak a **shipped** build without
 rebuilding.
 
 Maps are merged key-by-key; arrays (like `themes`) are **replaced wholesale**, so
 re-declare the whole array when you change it.
 
-To brand your own build, also drop files in `ibo_player/assets/branding/local/`
+To brand your own build, also drop files in `app/assets/branding/local/`
 and point the config at them — that folder is git-ignored.
 
 ## Branding
@@ -144,4 +144,23 @@ python tools/make_branding.py
 ```
 
 Edit the colours/landmass list at the top of the script, or replace the files in
-`assets/branding/` outright.
+`assets/branding/` outright. `WORDMARK` in the same script sets the text drawn
+under the play mark.
+
+## Renaming the application itself
+
+The visible name is config only (`branding.app_name`, `branding.window_title`),
+but the *build* identity is not — change these six places if you want a different
+package/exe name:
+
+| What | Where |
+|---|---|
+| Dart package name | `app/pubspec.yaml` (`name:`), then re-run `flutter pub get` |
+| Package imports | `package:re_iptv/...` in `app/test/` and `app/tool/` |
+| Exe name + CMake project | `app/windows/CMakeLists.txt` (`project()`, `BINARY_NAME`) |
+| Native window title | `app/windows/runner/main.cpp` |
+| Version resource / data folder | `app/windows/runner/Runner.rc` — `CompanyName` and `ProductName` also decide where `getApplicationSupportDirectory()` points, i.e. where `app_config.local.json` and the Hive boxes live |
+| Hive box file names | `HiveBoxes` in `app/lib/core/constants.dart` |
+
+Note that renaming `CompanyName`/`ProductName` moves the data folder, so an
+existing install will look empty until you copy it across or re-add a playlist.

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ibo_player/core/config/app_config.dart';
+import 'package:re_iptv/core/config/app_config.dart';
 
 void main() {
   group('deepMerge', () {

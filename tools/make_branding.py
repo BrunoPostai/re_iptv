@@ -2,7 +2,7 @@
 
 These assets are intentionally generic (an abstract play mark plus a stylised
 dotted world map) so that the repository does not ship anybody else's artwork.
-Replace the files in `ibo_player/assets/branding/` with your own — or point
+Replace the files in `app/assets/branding/` with your own — or point
 `app_config.json` at absolute file paths — to personalise the build.
 
 Usage:
@@ -17,7 +17,11 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "ibo_player", "assets", "branding")
+OUT = os.path.join(ROOT, "app", "assets", "branding")
+
+# Wordmark drawn under the play mark. Placeholder art only — change it, or
+# replace the images entirely, to brand a build.
+WORDMARK = "IPTV"
 
 GOLD = (224, 168, 60)
 BLUE = (44, 111, 187)
@@ -163,7 +167,7 @@ def make_logo(path, size):
     )
 
     # Word mark.
-    text = "IPTV"
+    text = WORDMARK
     font = _font(int(size * 0.15))
     bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]

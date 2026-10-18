@@ -1,14 +1,14 @@
 # Flutter / Dart
-ibo_player/.dart_tool/
-ibo_player/.flutter-plugins
-ibo_player/.flutter-plugins-dependencies
-ibo_player/build/
-ibo_player/.packages
-ibo_player/*.iml
-ibo_player/.idea/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/build/
+app/.packages
+app/*.iml
+app/.idea/
 
 # Windows build output
-ibo_player/windows/flutter/ephemeral/
+app/windows/flutter/ephemeral/
 dist/
 *.exe
 *.pdb
@@ -19,9 +19,9 @@ dist/
 
 # Local personalisation — never committed
 app_config.local.json
-ibo_player/assets/config/app_config.local.json
-ibo_player/assets/branding/local/
-ibo_player/assets/languages/local/
+app/assets/config/app_config.local.json
+app/assets/branding/local/
+app/assets/languages/local/
 
 # Analysis artefacts that may contain user data
 *.hive

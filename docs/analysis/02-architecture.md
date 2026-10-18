@@ -3,22 +3,23 @@
 ## Runtime shape
 
 ```
-Ibo Player.exe                (Windows runner: window, DPI, title bar)
+client.exe                    (Windows runner: window, DPI, title bar)
 └─ flutter_windows.dll        (stock Flutter engine)
    └─ data\app.so             (AOT Dart: all application logic)
       ├─ libmpv-2.dll         (media playback, via media_kit)
-      ├─ Hive boxes           (%APPDATA%\com.example\ibo_tv\localData\*)
+      ├─ Hive boxes           (%APPDATA%\<vendor>\<app>\localData\*)
       └─ HTTPS                (Xtream Codes API + playlist servers)
 ```
 
-Dart package name `ibo_tv`; the runner uses the standard Flutter Windows embedder
+Dart package name (recorded in [01 — Provenance](01-target-inventory.md#provenance));
+the runner uses the standard Flutter Windows embedder
 with `window_manager` in control of the native window (frameless title bar,
 minimise/maximise/close drawn by Flutter itself).
 
 ## Recovered source layout
 
 Static strings in `app.so` reveal the source file paths of the compiled program.
-They reconstruct the following structure (paths under `package:ibo_tv/`):
+They reconstruct the following structure (paths under the original's own package):
 
 ```
 lib/

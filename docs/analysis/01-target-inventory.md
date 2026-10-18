@@ -4,13 +4,13 @@
 
 | Property | Value |
 |---|---|
-| Product name | "IBO Player" (as displayed by the vendor's installer/shortcut) |
+| Product | a commercial Windows IPTV client (identified in *Provenance* below) |
 | Version | 1.0.4 |
 | Platform | Windows x64 desktop (Flutter Windows embedder) |
-| Install root | `C:\Program Files (x86)\Ibo Player` |
-| App / package id | `ibo_tv` (Dart package name, per embedded source paths) |
 | Engine | Flutter, Dart AOT snapshot |
-| Vendor runtime data | `%APPDATA%\com.example\ibo_tv` |
+| Install root | per-machine program files directory (see *Provenance*) |
+| Dart package | internal package name, recovered from embedded source paths |
+| Runtime data | a per-user `%APPDATA%` folder (see *Provenance*) |
 
 Version 1.0.4 was confirmed from the shipped `.env` file
 (`APP_VERSION = 1.0.4`) and cross-checked against the version string embedded in
@@ -20,7 +20,7 @@ the binary and the in-app title bar.
 
 | Path (relative to install root) | Role | Notes |
 |---|---|---|
-| `Ibo Player.exe` | Windows host executable | Flutter Windows runner |
+| the host `.exe` | Windows host executable | Flutter Windows runner |
 | `data\app.so` | Dart AOT snapshot | **main analysis target** — application logic, class names, string constants |
 | `data\flutter_windows.dll` | Flutter engine | unmodified stock engine |
 | `data\icudtl.dat` | ICU data | locale/i18n support |
@@ -48,3 +48,14 @@ indexed into a local database so that browsing is offline after the first sync.
   omitted here — see 03).
 * Any user playlist, credential or cached content observed on the analysis
   machine.
+
+## Provenance
+
+> Kept apart so that the rest of these notes can stay brand-neutral, and recorded
+> so the analysis remains verifiable. The target was the retail Windows client
+> **IBO Player v1.0.4**, installed at `C:\Program Files (x86)\Ibo Player`, whose
+> Dart package is `ibo_tv` and whose data lives under
+> `%APPDATA%\com.example\ibo_tv`. These identifiers are deliberately absent
+> everywhere else in this repository, and nothing belonging to the product —
+> source, artwork, wording, translation tables, endpoint hostnames or user data —
+> is reproduced.

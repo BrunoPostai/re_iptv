@@ -1,8 +1,8 @@
 {
   "$comment": "Main personalisation file. Copy to app_config.local.json (in assets/config/ or in the app data folder) and override only what you need — the two files are deep-merged at startup, so your tweaks survive `git pull`.",
   "branding": {
-    "app_name": "IPTV Player",
-    "window_title": "IPTV Player",
+    "app_name": "re_iptv",
+    "window_title": "re_iptv",
     "logo": "assets/branding/logo.png",
     "logo_small": "assets/branding/logo_small.png",
     "website": "https://example.com",

@@ -46,5 +46,5 @@ Future<void> main() async {
 
   await configureDependencies(config);
 
-  runApp(const IboPlayerApp());
+  runApp(const ReIptvApp());
 }

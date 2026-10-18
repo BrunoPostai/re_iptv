@@ -7,11 +7,11 @@
 // The box is opened read-only: the command refuses to run if the box file does
 // not already exist, so it can never create or modify an application database.
 //
-// Usage (from the `ibo_player` directory):
+// Usage (from the `app` directory):
 //   dart run tool/hive_dump.dart <box-directory> <box-name> [--keys] [--out file.json]
 //
-// Example:
-//   dart run tool/hive_dump.dart "%APPDATA%\com.example\ibo_tv\localData" hive-ibo-tv-box --keys
+// Example (this app's own data folder):
+//   dart run tool/hive_dump.dart "%APPDATA%\com.reiptv\re_iptv\localData" hive-re-iptv-box --keys
 //
 // WARNING: a real settings box contains plaintext playlist credentials. Treat any
 // output as sensitive and never commit it.

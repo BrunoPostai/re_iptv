@@ -8,10 +8,10 @@
 #
 # Run AFTER `flutter pub get`.
 #
-# Usage:  powershell -ExecutionPolicy Bypass -File tools/make_plugin_junctions.ps1 [-Project ibo_player] [-Force]
+# Usage:  powershell -ExecutionPolicy Bypass -File tools/make_plugin_junctions.ps1 [-Project app] [-Force]
 
 param(
-    [string]$Project = "ibo_player",
+    [string]$Project = "app",
     [switch]$Force
 )
 

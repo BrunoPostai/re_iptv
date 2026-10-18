@@ -1,9 +1,10 @@
 # 04 — Local storage schema
 
-Everything the original stores lives in **Hive** boxes under
+Everything the original stores lives in **Hive** boxes under a per-user
+application-data folder:
 
 ```
-%APPDATA%\com.example\ibo_tv\localData\
+%APPDATA%\<vendor>\<app>\localData\
 ```
 
 Hive boxes are length-prefixed key/value files, so they can be enumerated and
@@ -13,18 +14,30 @@ produced (each one was verified by opening the real database, see
 
 | Box file | Purpose | Scope |
 |---|---|---|
-| `hive-ibo-tv-box.hive` | identity, playlists, preferences, cached language tables | global |
-| `ibo-tv-<playlistId>.hive` | that playlist's imported catalogue | per playlist |
-| `ibo-tv-demo.hive` | content of the built-in demo playlist | per playlist (demo) |
+| `hive-<app>-box.hive` | identity, playlists, preferences, cached language tables | global |
+| `<app>-<playlistId>.hive` | that playlist's imported catalogue | per playlist |
+| `<app>-demo.hive` | content of the built-in demo playlist | per playlist (demo) |
 
 Having one content box per playlist is what makes "change playlist" cheap:
 switching selects another box, and nothing has to be re-imported.
 
-The recreation uses the **same box names and keys** (`HiveBoxes`, `StoreKeys`,
-`ContentKeys` in `lib/core/constants.dart`) so it can open a database the
-original left behind.
+### How the recreation maps onto this
 
-## Global box — `hive-ibo-tv-box`
+`HiveBoxes` in `app/lib/core/constants.dart` keeps the same *structure* under the
+neutral project name:
+
+| Original | Recreation |
+|---|---|
+| `hive-<app>-box` | `hive-re-iptv-box` |
+| `<app>-<playlistId>` | `re-iptv-<playlistId>` |
+| `<app>-demo` | `re-iptv-demo` |
+
+The **key names inside the boxes are identical** (`saved-channels`,
+`playlist_name`, `category_id`, …), so an existing database remains readable if you
+rename its box files — the app simply will not look for the vendor's names by
+itself.
+
+## Global box — `hive-re-iptv-box` / `hive-<app>-box`
 
 Observed keys, exactly as stored:
 
@@ -81,7 +94,7 @@ Stored as a JSON **string** containing an array; each element was:
 `Playlist.fromJson`/`toJson` in `lib/data/models/models.dart` read and write these
 field names, so an existing `playlists` entry loads without conversion.
 
-## Per-playlist box — `ibo-tv-<playlistId>`
+## Per-playlist box — `re-iptv-<playlistId>` / `<app>-<playlistId>`
 
 Observed keys in a populated box:
 

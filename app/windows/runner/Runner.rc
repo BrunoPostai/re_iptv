@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.reiptv" "\0"
-            VALUE "FileDescription", "ibo_player" "\0"
+            VALUE "FileDescription", "re_iptv" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "ibo_player" "\0"
+            VALUE "InternalName", "re_iptv" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.reiptv. All rights reserved." "\0"
-            VALUE "OriginalFilename", "ibo_player.exe" "\0"
-            VALUE "ProductName", "ibo_player" "\0"
+            VALUE "OriginalFilename", "re_iptv.exe" "\0"
+            VALUE "ProductName", "re_iptv" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

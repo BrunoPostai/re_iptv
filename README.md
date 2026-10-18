@@ -20,7 +20,7 @@ branding** — no vendor artwork, names or content is included.
 
 ```
 re_iptv/
-├─ ibo_player/          Flutter application (Windows desktop; Android/iOS ready)
+├─ app/          Flutter application (Windows desktop; Android/iOS ready)
 │  ├─ lib/
 │  │  ├─ core/          config, theme, i18n, DI, utils
 │  │  ├─ data/          models, Xtream/M3U sources, repositories, Hive storage
@@ -62,7 +62,7 @@ Requirements: Flutter stable (3.29+), Visual Studio 2022 with the *Desktop
 development with C++* workload.
 
 ```powershell
-cd ibo_player
+cd app
 flutter pub get
 flutter run -d windows          # or: flutter build windows --release
 ```
@@ -91,7 +91,7 @@ through **Change Playlist → Add Playlist**.
 
 ## Personalising
 
-Everything user-visible lives in `ibo_player/assets/config/app_config.json`
+Everything user-visible lives in `app/assets/config/app_config.json`
 (branding, feature flags, themes, window, defaults). Create
 `assets/config/app_config.local.json` — or drop one next to the app's data
 folder — and it is **deep-merged over the defaults at startup**, so your custom
