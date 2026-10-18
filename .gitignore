@@ -9,6 +9,7 @@ ibo_player/.idea/
 
 # Windows build output
 ibo_player/windows/flutter/ephemeral/
+dist/
 *.exe
 *.pdb
 *.ilk
