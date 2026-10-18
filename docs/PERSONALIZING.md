@@ -179,3 +179,25 @@ package/exe name:
 
 Note that renaming `CompanyName`/`ProductName` moves the data folder, so an
 existing install will look empty until you copy it across or re-add a playlist.
+
+Renaming the Hive boxes needs a file rename, not a re-import: the box name is
+not stored inside a `.hive` file, so copying `oldName.hive` to `newName.hive` in
+the new data folder is enough — copy the `.hive` files only, leave the `.lock`
+files behind. The per-playlist box is named after the playlist id, so it has to
+keep that id:
+
+```powershell
+$src = "$env:APPDATA\<company>\<old-product>\localData"
+$dst = "$env:APPDATA\<company>\<new-product>\localData"
+New-Item -ItemType Directory -Path $dst -Force | Out-Null
+Get-ChildItem $src -File -Filter *.hive | ForEach-Object {
+  $new = switch -Regex ($_.Name) {
+    '^hive-<old-prefix>-box\.hive$' { 'hive-<new-prefix>-box.hive'; break }
+    '^<old-prefix>-(.+)\.hive$'     { "<new-prefix>-$($Matches[1]).hive"; break }
+    default { $null }
+  }
+  if ($new) { Copy-Item $_.FullName (Join-Path $dst $new) -Force }
+}
+```
+
+Key names inside the boxes are unchanged, so the copied data is read as-is.
