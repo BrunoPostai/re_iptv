@@ -1,0 +1,239 @@
+import 'dart:convert';
+
+import 'package:hive/hive.dart';
+
+import '../../core/constants.dart';
+import '../models/models.dart';
+import '../sources/playlist_source.dart';
+import '../storage/app_storage.dart';
+import 'playlist_repository.dart';
+
+/// Loads, caches and queries playlist content.
+class ContentRepository {
+  ContentRepository(this._storage, this._playlists);
+
+  final AppStorage _storage;
+  final PlaylistRepository _playlists;
+
+  Future<Box<dynamic>> _box(Playlist playlist) => _storage.openContentBox(playlist.id);
+
+  static ContentKindKey kindKey(ContentKind kind) => switch (kind) {
+        ContentKind.live => ContentKindKey.live,
+        ContentKind.movie => ContentKindKey.movie,
+        ContentKind.series => ContentKindKey.series,
+      };
+
+  static String favoriteKey(ContentKind kind) => switch (kind) {
+        ContentKind.live => ContentKeys.favoriteChannels,
+        ContentKind.movie => ContentKeys.favoriteMovies,
+        ContentKind.series => ContentKeys.favoriteSeries,
+      };
+
+  static String watchedKey(ContentKind kind) => switch (kind) {
+        ContentKind.live => ContentKeys.watchedChannels,
+        ContentKind.movie => ContentKeys.watchedMovies,
+        ContentKind.series => ContentKeys.watchedSeries,
+      };
+
+  // ------------------------------------------------------------------- load
+
+  Future<List<Category>> categories(Playlist playlist, ContentKind kind) async {
+    final box = await _box(playlist);
+    return _storage.categories(box, kindKey(kind));
+  }
+
+  Future<List<Channel>> channels(Playlist playlist) async =>
+      _storage.channels(await _box(playlist));
+
+  Future<List<Movie>> movies(Playlist playlist) async => _storage.movies(await _box(playlist));
+
+  Future<List<Series>> series(Playlist playlist) async => _storage.series(await _box(playlist));
+
+  bool get hasCache => false;
+
+  Future<DateTime?> lastSync(Playlist playlist) async {
+    final raw = _storage.readSetting<String>(StoreKeys.contentUpdateDate, '');
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  /// Pulls the full catalogue from the source and stores it.
+  Future<void> sync(
+    Playlist playlist, {
+    void Function(String stage, double progress)? onProgress,
+  }) async {
+    final source = _playlists.sourceFor(playlist);
+    final box = await _box(playlist);
+    onProgress?.call('authenticating', 0.05);
+    await source.authenticate();
+
+    onProgress?.call('live', 0.15);
+    final liveCategories = await source.categories(ContentKind.live);
+    await _storage.saveCategories(box, ContentKindKey.live, liveCategories);
+    final channelList = await source.channels();
+    await _storage.saveChannels(box, channelList);
+
+    onProgress?.call('movies', 0.45);
+    final movieCategories = await source.categories(ContentKind.movie);
+    await _storage.saveCategories(box, ContentKindKey.movie, movieCategories);
+    final movieList = await source.movies();
+    await _storage.saveMovies(box, movieList);
+
+    onProgress?.call('series', 0.75);
+    final seriesCategories = await source.categories(ContentKind.series);
+    await _storage.saveCategories(box, ContentKindKey.series, seriesCategories);
+    final seriesList = await source.series();
+    await _storage.saveSeries(box, seriesList);
+
+    await _storage.writeSetting(
+      StoreKeys.contentUpdateDate,
+      DateTime.now().toIso8601String(),
+    );
+    onProgress?.call('ready', 1);
+  }
+
+  Future<SeriesInfo> seriesInfo(Playlist playlist, int seriesId) async {
+    final cached = await _cachedSeriesInfo(playlist, seriesId);
+    if (cached != null) return cached;
+    final info = await _playlists.sourceFor(playlist).seriesInfo(seriesId);
+    final box = await _box(playlist);
+    await box.put('series-info-$seriesId', json.encode({
+      'series': info.series.toJson(),
+      'seasons': info.seasons,
+      'episodes': {
+        for (final e in info.episodes.entries) '${e.key}': e.value.map((x) => x.toJson()).toList(),
+      },
+    }));
+    return info;
+  }
+
+  Future<SeriesInfo?> _cachedSeriesInfo(Playlist playlist, int seriesId) async {
+    final box = await _box(playlist);
+    final raw = box.get('series-info-$seriesId');
+    if (raw is! String || raw.isEmpty) return null;
+    try {
+      final decoded = Map<String, dynamic>.from(json.decode(raw) as Map);
+      final episodesRaw = Map<String, dynamic>.from((decoded['episodes'] as Map?) ?? const {});
+      return SeriesInfo(
+        series: Series.fromJson(Map<String, dynamic>.from(decoded['series'] as Map)),
+        seasons: ((decoded['seasons'] as List?) ?? const []).map((e) => e as int).toList(),
+        episodes: {
+          for (final e in episodesRaw.entries)
+            int.parse(e.key): (e.value as List)
+                .whereType<Map>()
+                .map((x) => Episode.fromJson(Map<String, dynamic>.from(x), season: int.parse(e.key)))
+                .toList(),
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Movie> movieInfo(Playlist playlist, Movie movie) async {
+    try {
+      return await _playlists.sourceFor(playlist).movieInfo(movie.streamId);
+    } catch (_) {
+      return movie;
+    }
+  }
+
+  Future<List<EpgProgram>> shortEpg(Playlist playlist, int streamId) async {
+    try {
+      return await _playlists.sourceFor(playlist).shortEpg(streamId);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // -------------------------------------------------------------- watch state
+
+  Future<List<String>> favorites(Playlist playlist, ContentKind kind) async =>
+      _storage.idList(await _box(playlist), favoriteKey(kind));
+
+  Future<bool> isFavorite(Playlist playlist, ContentKind kind, int id) async =>
+      (await favorites(playlist, kind)).contains('$id');
+
+  Future<bool> toggleFavorite(Playlist playlist, ContentKind kind, int id) async {
+    final box = await _box(playlist);
+    final ids = _storage.idList(box, favoriteKey(kind)).toList();
+    final value = '$id';
+    final added = !ids.remove(value);
+    if (added) ids.add(value);
+    await _storage.saveIdList(box, favoriteKey(kind), ids);
+    return added;
+  }
+
+  Future<List<String>> watched(Playlist playlist, ContentKind kind) async =>
+      _storage.idList(await _box(playlist), watchedKey(kind));
+
+  Future<void> markWatched(Playlist playlist, ContentKind kind, int id) async {
+    final box = await _box(playlist);
+    final ids = _storage.idList(box, watchedKey(kind)).toList();
+    final value = '$id';
+    ids.remove(value);
+    ids.insert(0, value);
+    await _storage.saveIdList(box, watchedKey(kind), ids.take(100).toList());
+  }
+
+  Future<List<WatchProgress>> continueWatching(Playlist playlist, ContentKind kind) async {
+    final box = await _box(playlist);
+    final key = kind == ContentKind.series ? ContentKeys.continueSeries : ContentKeys.continueMovies;
+    final list = _storage.progressList(box, key).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return list;
+  }
+
+  Future<void> saveProgress(Playlist playlist, WatchProgress progress) async {
+    final box = await _box(playlist);
+    final key = progress.kind == 'episode' ? ContentKeys.continueSeries : ContentKeys.continueMovies;
+    final list = _storage.progressList(box, key).toList()
+      ..removeWhere((e) => e.id == progress.id)
+      ..insert(0, progress);
+    await _storage.saveProgressList(box, key, list.take(50).toList());
+  }
+
+  Future<void> clearWatchLists(Playlist playlist) async {
+    final box = await _box(playlist);
+    for (final key in [
+      ContentKeys.watchedChannels,
+      ContentKeys.watchedMovies,
+      ContentKeys.watchedSeries,
+      ContentKeys.continueMovies,
+      ContentKeys.continueSeries,
+    ]) {
+      await box.delete(key);
+    }
+  }
+
+  /// Removes configuration, cached content and watch state for one playlist.
+  Future<void> clearPlaylistCache(Playlist playlist) async {
+    final box = await _box(playlist);
+    await box.clear();
+  }
+
+  /// Removes every cached box and the global settings box.
+  Future<void> clearEverything() async {
+    await _storage.clearAll();
+  }
+
+  // ------------------------------------------------------------------ search
+
+  Future<List<Channel>> searchChannels(Playlist playlist, String query) async {
+    final q = query.toLowerCase();
+    final all = await channels(playlist);
+    return all.where((c) => c.name.toLowerCase().contains(q)).take(300).toList();
+  }
+
+  Future<List<Movie>> searchMovies(Playlist playlist, String query) async {
+    final q = query.toLowerCase();
+    final all = await movies(playlist);
+    return all.where((m) => m.name.toLowerCase().contains(q)).take(300).toList();
+  }
+
+  Future<List<Series>> searchSeries(Playlist playlist, String query) async {
+    final q = query.toLowerCase();
+    final all = await series(playlist);
+    return all.where((s) => s.name.toLowerCase().contains(q)).take(300).toList();
+  }
+}

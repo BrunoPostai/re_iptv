@@ -1,0 +1,15 @@
+# Normalise line endings so the repository stays LF-based on every platform,
+# while keeping Windows scripts in the CRLF form their shebang-less runtimes expect.
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary artwork and build inputs
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.ttf binary
+*.hive binary

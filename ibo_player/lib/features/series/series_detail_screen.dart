@@ -1,0 +1,421 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../blocs/content_bloc.dart';
+import '../../blocs/settings_bloc.dart';
+import '../../core/config/app_config.dart';
+import '../../core/di/injector.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/models/models.dart';
+import '../../data/repositories/content_repository.dart';
+import '../../data/repositories/playlist_repository.dart';
+import '../../data/sources/playlist_source.dart';
+import '../../widgets/common.dart';
+import '../../widgets/smart_image.dart';
+import '../../widgets/title_bar.dart';
+import '../player/player_screen.dart';
+
+/// Series detail: seasons, episode list and resume support.
+class SeriesDetailScreen extends StatefulWidget {
+  const SeriesDetailScreen({super.key, required this.series});
+
+  final Series series;
+
+  @override
+  State<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
+}
+
+class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
+  SeriesInfo? _info;
+  bool _loading = true;
+  bool _favorite = false;
+  int? _season;
+  final Map<String, WatchProgress> _progress = {};
+
+  Playlist? get _playlist => getIt<PlaylistRepository>().active;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final playlist = _playlist;
+    if (playlist == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final content = getIt<ContentRepository>();
+    final info = await content.seriesInfo(playlist, widget.series.seriesId);
+    final favorite = await content.isFavorite(playlist, ContentKind.series, widget.series.seriesId);
+    final progress = await content.continueWatching(playlist, ContentKind.series);
+    if (!mounted) return;
+    setState(() {
+      _info = info;
+      _favorite = favorite;
+      _season = info.seasons.isEmpty ? null : info.seasons.first;
+      for (final p in progress) {
+        _progress[p.id] = p;
+      }
+      _loading = false;
+    });
+  }
+
+  Future<void> _toggleFavorite() async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final added = await getIt<ContentRepository>()
+        .toggleFavorite(playlist, ContentKind.series, widget.series.seriesId);
+    if (mounted) setState(() => _favorite = added);
+  }
+
+  Future<void> _play(Episode episode, Series series) async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final url = getIt<PlaylistRepository>().sourceFor(playlist).episodeUrl(episode);
+    if (url.isEmpty) return;
+    final id = '${series.seriesId}:${episode.id}';
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlayerScreen(
+          item: MediaItem(
+            title: series.name,
+            subtitle: episode.title.isEmpty
+                ? 'S${episode.season} · E${episode.episodeNum}'
+                : 'S${episode.season} · E${episode.episodeNum} · ${episode.title}',
+            image: episode.image.isNotEmpty ? episode.image : series.cover,
+            url: url,
+            streamId: int.tryParse(episode.id) ?? episode.episodeNum,
+            kind: 'episode',
+            parentId: series.seriesId,
+            season: episode.season,
+            episodeNum: episode.episodeNum,
+            containerExtension: episode.containerExtension,
+          ),
+          startAt: _progress[id]?.position ?? Duration.zero,
+        ),
+      ),
+    );
+    if (mounted && context.mounted) {
+      context.read<ContentBloc>().add(const ContentReloaded());
+      await _load();
+    }
+  }
+
+  Future<void> _openTrailer(String trailer) async {
+    if (trailer.isEmpty) return;
+    final uri = Uri.parse('https://www.youtube.com/watch?v=$trailer');
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final config = getIt<AppConfig>();
+    final theme = context.watch<SettingsBloc>().state.theme;
+    final info = _info;
+    final series = info?.series ?? widget.series;
+    final episodes = _season == null ? const <Episode>[] : (info?.episodes[_season] ?? const <Episode>[]);
+
+    return Scaffold(
+      body: AppBackground(
+        image: theme.background,
+        scrim: 0.62,
+        child: Column(
+          children: [
+            AppTitleBar(
+              title: config.branding.windowTitle,
+              logo: config.branding.logoSmall,
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: _loading
+                  ? const LoadingBlock(message: 'Loading episodes...')
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 320,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 116,
+                                      child: AspectRatio(
+                                        aspectRatio: 2 / 3,
+                                        child: SmartImage(
+                                          path: series.cover,
+                                          fallbackText: series.name,
+                                          showBorder: true,
+                                          borderRadius: 8,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            series.name,
+                                            style: const TextStyle(
+                                              color: AppColors.gold,
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          if (series.rating5Based > 0)
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.star, size: 13, color: AppColors.gold),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  series.rating5Based.toStringAsFixed(1),
+                                                  style: const TextStyle(
+                                                    color: AppColors.textPrimary,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          if (series.releaseDate.isNotEmpty)
+                                            Text(
+                                              series.releaseDate,
+                                              style: const TextStyle(
+                                                color: AppColors.textMuted,
+                                                fontSize: 11.5,
+                                              ),
+                                            ),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            children: [
+                                              if (info != null && info.seasons.isNotEmpty)
+                                                Expanded(
+                                                  child: DropdownButtonHideUnderline(
+                                                    child: DropdownButton<int>(
+                                                      value: _season,
+                                                      dropdownColor: AppColors.panelAlt,
+                                                      isDense: true,
+                                                      style: const TextStyle(
+                                                        color: AppColors.textPrimary,
+                                                        fontSize: 12.5,
+                                                      ),
+                                                      items: [
+                                                        for (final s in info.seasons)
+                                                          DropdownMenuItem(
+                                                            value: s,
+                                                            child: Text('Season $s'),
+                                                          ),
+                                                      ],
+                                                      onChanged: (value) =>
+                                                          setState(() => _season = value),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: AccentButton(
+                                        label: 'Play first episode',
+                                        icon: Icons.play_arrow,
+                                        onPressed: episodes.isEmpty
+                                            ? null
+                                            : () => _play(episodes.first, series),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: _toggleFavorite,
+                                      tooltip: _favorite
+                                          ? 'Remove from favourites'
+                                          : 'Add to favourites',
+                                      icon: Icon(
+                                        _favorite ? Icons.favorite : Icons.favorite_border,
+                                        color: _favorite ? AppColors.red : AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (series.plot.isNotEmpty) ...[
+                                  const SizedBox(height: 18),
+                                  const Text(
+                                    'PLOT',
+                                    style: TextStyle(
+                                      color: AppColors.gold,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    series.plot,
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 12.5,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                                if (series.genre.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  InfoRow(label: 'Genre', value: series.genre),
+                                ],
+                                if (series.cast.isNotEmpty) InfoRow(label: 'Cast', value: series.cast),
+                                if (series.youtubeTrailer.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  OutlineButtonX(
+                                    label: 'Watch trailer',
+                                    icon: Icons.ondemand_video,
+                                    onPressed: () => _openTrailer(series.youtubeTrailer),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.22),
+                            child: episodes.isEmpty
+                                ? const EmptyBlock(
+                                    message: 'No episodes found for this season.',
+                                    icon: Icons.video_library_outlined,
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: episodes.length,
+                                    itemBuilder: (context, index) {
+                                      final episode = episodes[index];
+                                      final id = '${series.seriesId}:${episode.id}';
+                                      final progress = _progress[id];
+                                      return _EpisodeTile(
+                                        episode: episode,
+                                        progress: progress,
+                                        onTap: () => _play(episode, series),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EpisodeTile extends StatefulWidget {
+  const _EpisodeTile({required this.episode, required this.onTap, this.progress});
+
+  final Episode episode;
+  final VoidCallback onTap;
+  final WatchProgress? progress;
+
+  @override
+  State<_EpisodeTile> createState() => _EpisodeTileState();
+}
+
+class _EpisodeTileState extends State<_EpisodeTile> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final episode = widget.episode;
+    final progress = widget.progress;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: _hovered ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.28),
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(color: _hovered ? AppColors.gold.withValues(alpha: 0.6) : AppColors.divider),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 96,
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: SmartImage(
+                    path: episode.image,
+                    fallbackText: '${episode.episodeNum}',
+                    borderRadius: 4,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${episode.episodeNum}. ${episode.title.isEmpty ? 'Episode ${episode.episodeNum}' : episode.title}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (progress != null) ...[
+                      const SizedBox(height: 5),
+                      LinearProgressIndicator(
+                        value: progress.percent,
+                        minHeight: 3,
+                        backgroundColor: Colors.white12,
+                        valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                      ),
+                    ],
+                    if (episode.plot.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          episode.plot,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (episode.duration.isNotEmpty)
+                Text(
+                  episode.duration,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                ),
+              const SizedBox(width: 8),
+              const Icon(Icons.play_circle_outline, color: AppColors.gold, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

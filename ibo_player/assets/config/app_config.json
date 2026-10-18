@@ -1,0 +1,82 @@
+{
+  "$comment": "Main personalisation file. Copy to app_config.local.json (in assets/config/ or in the app data folder) and override only what you need — the two files are deep-merged at startup, so your tweaks survive `git pull`.",
+  "branding": {
+    "app_name": "IPTV Player",
+    "window_title": "IPTV Player",
+    "logo": "assets/branding/logo.png",
+    "logo_small": "assets/branding/logo_small.png",
+    "website": "https://example.com",
+    "disclaimer": "This application is a general purpose media player and does not include any channels, movies or series. You must provide your own playlist and you are responsible for the content you watch.",
+    "no_sell_notice": "This application does not sell playlists or subscriptions."
+  },
+  "features": {
+    "live": true,
+    "movies": true,
+    "series": true,
+    "replay": true,
+    "change_playlist": true,
+    "search": true,
+    "settings": true,
+    "user_account": false,
+    "stream_format": true,
+    "subtitle_settings": true,
+    "parental_control": true,
+    "themes": true,
+    "languages": true,
+    "sort_options": true,
+    "sports_guide": false,
+    "demo_playlist": false,
+    "trial_notice": false,
+    "multi_server_switch": false
+  },
+  "player": {
+    "stream_format": "default",
+    "subtitle_size": 22,
+    "hardware_decoding": true,
+    "start_fullscreen": false,
+    "user_agent": "IPTVPlayer/1.0"
+  },
+  "window": {
+    "width": 1280,
+    "height": 760,
+    "min_width": 1024,
+    "min_height": 600,
+    "title_bar_style": "custom"
+  },
+  "default_theme": "main",
+  "default_language": "en",
+  "themes": [
+    {
+      "id": "main",
+      "name": "Background Main",
+      "background": "assets/branding/bg_main.jpg",
+      "accent": "#2C6FBB",
+      "dark": true
+    },
+    {
+      "id": "honor",
+      "name": "Gold Honor",
+      "background": "assets/branding/bg_honor.jpg",
+      "accent": "#E0A83C",
+      "dark": true
+    },
+    {
+      "id": "black",
+      "name": "Solid Black",
+      "background": "assets/branding/bg_black.jpg",
+      "accent": "#1F5FA8",
+      "dark": true
+    }
+  ],
+  "endpoints": {
+    "$comment": "Optional remote service endpoints used by the account features. Leave empty to keep the app fully local.",
+    "api_base_urls": []
+  },
+  "demo_playlist": {
+    "name": "Demo",
+    "url": "",
+    "username": "",
+    "password": "",
+    "type": "xc"
+  }
+}
