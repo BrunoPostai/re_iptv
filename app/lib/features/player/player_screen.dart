@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../blocs/player_bloc.dart';
 import '../../blocs/settings_bloc.dart';
+import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -137,7 +138,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final settings = context.read<SettingsBloc>().state;
 
     return BlocProvider<PlayerBloc>(
-      create: (_) => PlayerBloc(settings.subtitleSize)..add(PlayerOpened(widget.item, startAt: widget.startAt)),
+      create: (_) => PlayerBloc(
+        settings.subtitleSize,
+        volume: settings.volume,
+        title: getIt<AppConfig>().branding.windowTitle,
+      )..add(PlayerOpened(widget.item, startAt: widget.startAt)),
       child: Focus(
         autofocus: true,
         onKeyEvent: _onKey,
@@ -163,6 +168,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           controller: context.read<PlayerBloc>().controller,
                           controls: NoVideoControls,
                           fill: Colors.black,
+                        ),
+                      ),
+                      // The player route is frameless, so this invisible strip is
+                      // what allows the window to be dragged during playback. It
+                      // sits above the video but below the overlay, and is
+                      // translucent so the controls still receive their taps.
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 34,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onPanStart: (_) => windowManager.startDragging(),
+                          onDoubleTap: () async {
+                            if (await windowManager.isMaximized()) {
+                              await windowManager.unmaximize();
+                            } else {
+                              await windowManager.maximize();
+                            }
+                          },
                         ),
                       ),
                       if (state.buffering)
@@ -247,7 +273,19 @@ class _Overlay extends StatelessWidget {
 
     return Column(
       children: [
-        Container(
+        GestureDetector(
+          // The player route is frameless, so the overlay's top bar doubles as
+          // the window's drag handle (and double-click still maximises).
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (_) => windowManager.startDragging(),
+          onDoubleTap: () async {
+            if (await windowManager.isMaximized()) {
+              await windowManager.unmaximize();
+            } else {
+              await windowManager.maximize();
+            }
+          },
+          child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
@@ -279,6 +317,7 @@ class _Overlay extends StatelessWidget {
               const SizedBox(width: 12),
             ],
           ),
+        ),
         ),
         Expanded(
           child: GestureDetector(

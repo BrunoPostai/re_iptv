@@ -112,8 +112,8 @@ class Branding {
   final String noSellNotice;
 
   const Branding({
-    this.appName = 'IPTV Player',
-    this.windowTitle = 'IPTV Player',
+    this.appName = 'REIPTV',
+    this.windowTitle = 'REIPTV',
     this.logo = 'assets/branding/logo.png',
     this.logoSmall = 'assets/branding/logo_small.png',
     this.website = 'https://example.com',
@@ -124,8 +124,8 @@ class Branding {
   });
 
   factory Branding.fromJson(Map<String, dynamic> j) => Branding(
-        appName: j['app_name'] as String? ?? 'IPTV Player',
-        windowTitle: j['window_title'] as String? ?? 'IPTV Player',
+        appName: j['app_name'] as String? ?? 'REIPTV',
+        windowTitle: j['window_title'] as String? ?? 'REIPTV',
         logo: j['logo'] as String? ?? 'assets/branding/logo.png',
         logoSmall: j['logo_small'] as String? ?? 'assets/branding/logo_small.png',
         website: j['website'] as String? ?? 'https://example.com',
@@ -186,6 +186,11 @@ class ThemeSpec {
 class PlayerDefaults {
   final String streamFormat;
   final int subtitleSize;
+
+  /// Volume applied when a stream is opened, as a percentage (0-100).
+  ///
+  /// Opening live channels at full volume is unpleasant, so this defaults low.
+  final double defaultVolume;
   final bool hardwareDecoding;
   final bool startFullscreen;
   final String userAgent;
@@ -193,6 +198,7 @@ class PlayerDefaults {
   const PlayerDefaults({
     this.streamFormat = 'default',
     this.subtitleSize = 20,
+    this.defaultVolume = 20,
     this.hardwareDecoding = true,
     this.startFullscreen = false,
     this.userAgent = 'VLC/3.0.20 LibVLC/3.0.20',
@@ -201,6 +207,7 @@ class PlayerDefaults {
   factory PlayerDefaults.fromJson(Map<String, dynamic> j) => PlayerDefaults(
         streamFormat: j['stream_format'] as String? ?? 'default',
         subtitleSize: (j['subtitle_size'] as num?)?.toInt() ?? 20,
+        defaultVolume: ((j['default_volume'] as num?)?.toDouble() ?? 20).clamp(0, 100),
         hardwareDecoding: j['hardware_decoding'] as bool? ?? true,
         startFullscreen: j['start_fullscreen'] as bool? ?? false,
         userAgent: j['user_agent'] as String? ?? 'VLC/3.0.20 LibVLC/3.0.20',
@@ -209,6 +216,7 @@ class PlayerDefaults {
   Map<String, dynamic> toJson() => {
         'stream_format': streamFormat,
         'subtitle_size': subtitleSize,
+        'default_volume': defaultVolume,
         'hardware_decoding': hardwareDecoding,
         'start_fullscreen': startFullscreen,
         'user_agent': userAgent,

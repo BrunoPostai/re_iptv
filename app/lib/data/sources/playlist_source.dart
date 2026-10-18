@@ -237,14 +237,43 @@ class XtreamSource implements PlaylistSource {
     return SeriesInfo(series: series, seasons: seasons, episodes: episodes);
   }
 
+  /// Programme guide for one channel.
+  ///
+  /// `get_simple_data_table` returns the day's full listing and is what the
+  /// original client asked for; `get_short_epg` carries only the current
+  /// programme and the next few. Panels implement one or the other, so the full
+  /// table is tried first with the short guide as a fallback — asking for the
+  /// short one alone is why the panel came up empty on most channels.
   @override
   Future<List<EpgProgram>> shortEpg(int streamId) async {
-    final json = await _api({'action': 'get_short_epg', 'stream_id': '$streamId'});
-    final listings = (json['epg_listings'] as List?) ?? const [];
-    return listings
-        .whereType<Map>()
-        .map((e) => EpgProgram.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    final full = await _epgListings('get_simple_data_table', streamId);
+    final programs = full.isNotEmpty ? full : await _epgListings('get_short_epg', streamId);
+    programs.sort((a, b) {
+      if (a.hasUsableTime != b.hasUsableTime) return a.hasUsableTime ? -1 : 1;
+      return a.start.compareTo(b.start);
+    });
+    return programs;
+  }
+
+  Future<List<EpgProgram>> _epgListings(String action, int streamId) async {
+    try {
+      final json = await _api({
+        'action': action,
+        'stream_id': '$streamId',
+        // Only meaningful for get_short_epg; ignored by the full table.
+        'limit': '24',
+      });
+      final raw = json['epg_listings'];
+      if (raw is! List) return [];
+      return raw
+          .whereType<Map>()
+          .map((e) => EpgProgram.fromJson(Map<String, dynamic>.from(e)))
+          .where((program) => program.title.isNotEmpty || program.hasUsableTime)
+          .toList();
+    } catch (_) {
+      // A channel without a guide is normal; report it as "no listings".
+      return [];
+    }
   }
 
   @override

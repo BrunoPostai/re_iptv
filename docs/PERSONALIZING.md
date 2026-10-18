@@ -89,12 +89,27 @@ used for selection and focus states. Themes are selectable at runtime from
   "player": {
     "stream_format": "default",   // default | m3u8 | ts
     "subtitle_size": 22,
+    "default_volume": 20,         // 0-100; the volume streams open at
     "hardware_decoding": true,
     "start_fullscreen": false,
-    "user_agent": "IPTVPlayer/1.0"
+    "user_agent": "REIPTV/1.0"
   }
 }
 ```
+
+`default_volume` only seeds new playback — the slider in the player and the
+**Volume** tile in Settings change it for the current session and for the next
+stream respectively. It defaults to 20 because opening live channels at full
+volume is unpleasant.
+
+## Live preview
+
+Selecting a channel previews it in the details panel, muted, with a small
+speaker button to unmute. When the stream cannot be opened (or reports nothing
+after twelve seconds) the panel shows a "nothing on air right now" card instead
+of a black rectangle, so an unavailable channel never looks like a crash. The
+preview stops as soon as you press **Watch**, so it never plays underneath the
+full player.
 
 ## Window
 

@@ -1,8 +1,8 @@
 {
   "$comment": "Main personalisation file. Copy to app_config.local.json (in assets/config/ or in the app data folder) and override only what you need — the two files are deep-merged at startup, so your tweaks survive `git pull`.",
   "branding": {
-    "app_name": "re_iptv",
-    "window_title": "re_iptv",
+    "app_name": "REIPTV",
+    "window_title": "REIPTV",
     "logo": "assets/branding/logo.png",
     "logo_small": "assets/branding/logo_small.png",
     "website": "https://example.com",
@@ -32,9 +32,10 @@
   "player": {
     "stream_format": "default",
     "subtitle_size": 22,
+    "default_volume": 20,
     "hardware_decoding": true,
     "start_fullscreen": false,
-    "user_agent": "IPTVPlayer/1.0"
+    "user_agent": "REIPTV/1.0"
   },
   "window": {
     "width": 1280,

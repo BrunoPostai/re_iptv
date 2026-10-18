@@ -13,6 +13,9 @@ class SettingsState extends Equatable {
   final String languageCode;
   final String streamFormat;
   final int subtitleSize;
+
+  /// Volume (0-100) applied when a stream is opened.
+  final double volume;
   final String pin;
   final Set<String> hiddenCategories;
   final String sortType;
@@ -26,6 +29,7 @@ class SettingsState extends Equatable {
     this.languageCode = 'en',
     this.streamFormat = 'default',
     this.subtitleSize = 20,
+    this.volume = 20,
     this.pin = '',
     this.hiddenCategories = const {},
     this.sortType = 'default',
@@ -40,6 +44,7 @@ class SettingsState extends Equatable {
     String? languageCode,
     String? streamFormat,
     int? subtitleSize,
+    double? volume,
     String? pin,
     Set<String>? hiddenCategories,
     String? sortType,
@@ -53,6 +58,7 @@ class SettingsState extends Equatable {
         languageCode: languageCode ?? this.languageCode,
         streamFormat: streamFormat ?? this.streamFormat,
         subtitleSize: subtitleSize ?? this.subtitleSize,
+        volume: volume ?? this.volume,
         pin: pin ?? this.pin,
         hiddenCategories: hiddenCategories ?? this.hiddenCategories,
         sortType: sortType ?? this.sortType,
@@ -70,6 +76,7 @@ class SettingsState extends Equatable {
         languageCode,
         streamFormat,
         subtitleSize,
+        volume,
         pin,
         hiddenCategories,
         sortType,
@@ -117,6 +124,13 @@ class SubtitleSizeChanged extends SettingsEvent {
   List<Object?> get props => [size];
 }
 
+class VolumeChanged extends SettingsEvent {
+  const VolumeChanged(this.volume);
+  final double volume;
+  @override
+  List<Object?> get props => [volume];
+}
+
 class PinChanged extends SettingsEvent {
   const PinChanged(this.pin);
   final String pin;
@@ -158,6 +172,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<LanguageChanged>(_onLanguageChanged);
     on<StreamFormatChanged>(_onStreamFormatChanged);
     on<SubtitleSizeChanged>(_onSubtitleSizeChanged);
+    on<VolumeChanged>(_onVolumeChanged);
     on<PinChanged>(_onPinChanged);
     on<CategoryVisibilityToggled>(_onCategoryVisibilityToggled);
     on<SortTypeChanged>(_onSortTypeChanged);
@@ -177,6 +192,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       theme: _config.themeById(themeId),
       streamFormat: _storage.readSetting(StoreKeys.streamFormat, _config.player.streamFormat),
       subtitleSize: _storage.readSetting(StoreKeys.subtitleSize, _config.player.subtitleSize),
+      volume: _storage.readSetting<double>(StoreKeys.volume, _config.player.defaultVolume),
       pin: _storage.readSetting(StoreKeys.lockCode, ''),
       sortType: _storage.readSetting(StoreKeys.sortChannelType, 'default'),
       hiddenCategories: _storage.readStringList(StoreKeys.hideLiveCategories).toSet(),
@@ -204,6 +220,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   Future<void> _onSubtitleSizeChanged(SubtitleSizeChanged event, Emitter<SettingsState> emit) async {
     emit(state.copyWith(subtitleSize: event.size));
     await _storage.writeSetting(StoreKeys.subtitleSize, event.size);
+  }
+
+  Future<void> _onVolumeChanged(VolumeChanged event, Emitter<SettingsState> emit) async {
+    final volume = event.volume.clamp(0, 100).toDouble();
+    emit(state.copyWith(volume: volume));
+    await _storage.writeSetting(StoreKeys.volume, volume);
   }
 
   Future<void> _onPinChanged(PinChanged event, Emitter<SettingsState> emit) async {

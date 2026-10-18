@@ -46,14 +46,14 @@ re_iptv/
 | Area | Implemented |
 |---|---|
 | Playlists | Xtream Codes (`player_api.php`) and M3U/M3U8, multiple playlists, active playlist switching |
-| Live TV | categories, channel list, channel details + programme guide, favourites, catch-up badge |
+| Live TV | categories, channel list, inline muted preview with an off-air card, programme guide with the on-air programme highlighted, favourites, catch-up badge |
 | Movies | categories, poster grid, search, sort, detail page with plot/cast/rating/trailer, resume |
 | Series | categories, seasons, episodes, resume per episode, favourites |
 | Catch-up | archive channels, date + start-time + duration picker, timeshift playback |
 | Search | global, tabbed by live/movies/series |
 | Library state | favourites, watched, continue-watching, all stored per playlist |
-| Player | libmpv via `media_kit`: seek, volume, audio/subtitle track selection, fullscreen, keyboard shortcuts, resume position |
-| Settings | theme, language, stream format, subtitle size, parental PIN, hide categories, cache control |
+| Player | libmpv via `media_kit`: seek, volume, audio/subtitle track selection, fullscreen, window dragging while playing, keyboard shortcuts, resume position |
+| Settings | theme, language, stream format, subtitle size, playback volume, parental PIN, hide categories, cache control |
 | Shell | frameless window with custom title bar, clock, account expiry status |
 
 ## Building (Windows)
@@ -98,6 +98,9 @@ folder — and it is **deep-merged over the defaults at startup**, so your custo
 build keeps working after `git pull`. See
 [`docs/PERSONALIZING.md`](docs/PERSONALIZING.md).
 
+Out of the box the app calls itself **REIPTV** — set `branding.app_name` and
+`branding.window_title` to rename it.
+
 ## Status
 
 | Area | State |
@@ -105,12 +108,13 @@ build keeps working after `git pull`. See
 | UI replica (all captured screens) | done |
 | Xtream + M3U data layer | done |
 | Playback, resume, favourites | done |
+| Programme guide + live preview | done |
 | Storage schema parity with the original | verified against a real database |
 | `flutter analyze` | clean |
-| Tests | 20 passing (models, config merge, Xtream/M3U parsing, URL builders, auth) |
+| Tests | 25 passing (models, EPG parsing, config merge, Xtream/M3U parsing, URL builders, auth) |
 | Windows release build | succeeds |
 | End-to-end playback on a live provider | needs your playlist — not part of the automated checks |
-| Remaining | EPG grid view, multi-window, mobile navigation polish |
+| Remaining | see [`TODO.md`](TODO.md); EPG grid view and multi-window are still open |
 
 The reverse-engineering notes record exactly which claims were observed and which
 are inferred: see [`docs/analysis/07`](docs/analysis/07-evidence-and-limits.md).

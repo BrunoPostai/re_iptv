@@ -21,7 +21,7 @@ OUT = os.path.join(ROOT, "app", "assets", "branding")
 
 # Wordmark drawn under the play mark. Placeholder art only — change it, or
 # replace the images entirely, to brand a build.
-WORDMARK = "IPTV"
+WORDMARK = "REIPTV"
 
 GOLD = (224, 168, 60)
 BLUE = (44, 111, 187)

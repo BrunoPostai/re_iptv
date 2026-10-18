@@ -159,8 +159,18 @@ class PlayerStopped extends PlayerEvent {
 
 /// Wraps `media_kit` (libmpv) playback.
 class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
-  PlayerBloc(int subtitleSize)
-      : super(PlayerState(subtitleSize: subtitleSize)) {
+  /// [volume] is applied to every stream this bloc opens; opening live channels
+  /// at libmpv's default of 100% is unpleasant, so callers pass a lower value.
+  PlayerBloc(int subtitleSize, {double volume = 20, String title = 'REIPTV'})
+      : _initialVolume = _clampVolume(volume),
+        _title = title,
+        super(PlayerState(subtitleSize: subtitleSize, volume: _clampVolume(volume))) {
+    player = Player(
+      configuration: PlayerConfiguration(
+        title: _title,
+        bufferSize: 32 * 1024 * 1024,
+      ),
+    );
     on<PlayerOpened>(_onOpened);
     on<PlayerPlayPause>(_onPlayPause);
     on<PlayerSeeked>(_onSeeked);
@@ -188,16 +198,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     ]);
   }
 
-  final Player player = Player(
-    configuration: const PlayerConfiguration(
-      title: 'IPTV Player',
-      bufferSize: 32 * 1024 * 1024,
-    ),
-  );
+  /// Volume every stream opens at, and the media title reported to libmpv.
+  final double _initialVolume;
+  final String _title;
+
+  late final Player player;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   VideoController get controller => _controller ??= VideoController(player);
   VideoController? _controller;
+
+  static double _clampVolume(double value) => value.clamp(0, 100).toDouble();
 
   Future<void> _onOpened(PlayerOpened event, Emitter<PlayerState> emit) async {
     emit(state.copyWith(
@@ -207,7 +218,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
       clearError: true,
       controlsVisible: true,
       completed: false,
+      volume: _initialVolume,
     ));
+    // Open at the configured volume instead of libmpv's default of 100%.
+    await player.setVolume(_initialVolume);
     await player.open(Media(event.item.url), play: true);
     if (event.startAt > Duration.zero) {
       await player.seek(event.startAt);

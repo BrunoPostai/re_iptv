@@ -98,6 +98,15 @@ class SettingsScreen extends StatelessWidget {
                             value: '${settings.subtitleSize} pt',
                             onTap: () => _showSubtitleSettings(context),
                           ),
+                        _settingsTile(
+                          context,
+                          width: 210,
+                          height: 128,
+                          label: l10n.t('volume'),
+                          icon: Icons.volume_up_outlined,
+                          value: '${settings.volume.round()}%',
+                          onTap: () => _showVolume(context),
+                        ),
                         if (features.parentalControl)
                           _settingsTile(
                             context,
@@ -402,6 +411,68 @@ class SettingsScreen extends StatelessWidget {
                         shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Done', style: TextStyle(color: AppColors.textMuted)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showVolume(BuildContext context) async {
+    final settings = context.read<SettingsBloc>();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          final volume = settings.state.volume.clamp(0.0, 100.0).toDouble();
+          return AlertDialog(
+            title: const Text('Playback volume', style: TextStyle(fontSize: 16)),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'The volume new live channels and movies open at. You can still '
+                    'change it while watching.',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11.5),
+                  ),
+                  Slider(
+                    value: volume,
+                    max: 100,
+                    divisions: 20,
+                    label: '${volume.round()}%',
+                    activeColor: AppColors.gold,
+                    inactiveColor: Colors.white24,
+                    onChanged: (value) {
+                      settings.add(VolumeChanged(value.roundToDouble()));
+                      setState(() {});
+                    },
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        volume == 0 ? Icons.volume_off : Icons.volume_up_outlined,
+                        size: 18,
+                        color: AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${volume.round()}%',
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                      ),
+                    ],
                   ),
                 ],
               ),

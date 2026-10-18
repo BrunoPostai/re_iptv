@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 
 /// Tolerant numeric helpers.
@@ -469,20 +471,80 @@ class EpgProgram extends Equatable {
     this.description = '',
   });
 
-  factory EpgProgram.fromJson(Map<String, dynamic> j) {
-    int ts(dynamic v) => int.tryParse((v ?? '0').toString()) ?? 0;
-    return EpgProgram(
-      title: (j['title'] ?? '').toString(),
-      description: (j['description'] ?? '').toString(),
-      start: DateTime.fromMillisecondsSinceEpoch(ts(j['start_timestamp']) * 1000),
-      end: DateTime.fromMillisecondsSinceEpoch(ts(j['stop_timestamp']) * 1000),
-    );
+  /// Parses one Xtream `epg_listings` entry.
+  ///
+  /// Two quirks of the API are handled here:
+  ///
+  ///  * `title` and `description` are **base64 encoded** by most panels but
+  ///    plain text on others, so decoding is attempted and falls back;
+  ///  * the times arrive either as unix seconds (`start_timestamp`) or as a UTC
+  ///    `YYYY-MM-DD HH:MM:SS` string (`start`). Panels differ, and reading only
+  ///    the timestamp leaves whole guides dated 1970.
+  factory EpgProgram.fromJson(Map<String, dynamic> j) => EpgProgram(
+        title: decodeEpgText(j['title']),
+        description: decodeEpgText(j['description']),
+        start: parseEpgTime(j['start_timestamp'], j['start']),
+        end: parseEpgTime(j['stop_timestamp'], j['end']),
+      );
+
+  /// Whether the programme is on air right now.
+  bool get isNow {
+    final now = DateTime.now();
+    return now.isAfter(start) && now.isBefore(end);
   }
 
-  bool get isNow => DateTime.now().isAfter(start) && DateTime.now().isBefore(end);
+  /// False when the payload carried no readable time, so the row can be hidden
+  /// rather than shown as `01:00 - 01:00`.
+  bool get hasUsableTime => start.year > 1970 && end.isAfter(start);
 
   @override
   List<Object?> get props => [title, start, end];
+}
+
+/// Decodes an Xtream EPG text field, tolerating panels that send plain text.
+///
+/// A value is only treated as base64 when it looks encoded *and* decodes to
+/// clean UTF-8; a plain title such as `News` fails the second test and is kept
+/// as-is.
+String decodeEpgText(Object? raw) {
+  final value = (raw ?? '').toString().trim();
+  if (value.length < 4 ||
+      value.length % 4 != 0 ||
+      !RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(value)) {
+    return value;
+  }
+  try {
+    final decoded = utf8.decode(base64.decode(value)).trim();
+    if (decoded.isEmpty) return value;
+    // Reject binary noise: decoded text must not contain control characters.
+    if (decoded.codeUnits.any((unit) => unit < 9 || (unit > 13 && unit < 32))) {
+      return value;
+    }
+    return decoded;
+  } catch (_) {
+    return value;
+  }
+}
+
+/// Resolves an EPG instant from a unix-seconds field or a UTC date string.
+DateTime parseEpgTime(Object? timestamp, Object? text) {
+  final seconds = int.tryParse((timestamp ?? '').toString().trim());
+  if (seconds != null && seconds > 0) {
+    return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+  }
+  final raw = (text ?? '').toString().trim();
+  if (raw.isEmpty) return DateTime.fromMillisecondsSinceEpoch(0);
+  // Xtream sends `YYYY-MM-DD HH:MM:SS` in UTC; Dart needs the zone marked.
+  final iso = raw.replaceFirst(' ', 'T');
+  final zoned = RegExp(r'(Z|[+-]\d{2}:?\d{2})$').hasMatch(iso) ? iso : '${iso}Z';
+  for (final candidate in [zoned, iso]) {
+    try {
+      return DateTime.parse(candidate).toLocal();
+    } catch (_) {
+      // Try the next shape.
+    }
+  }
+  return DateTime.fromMillisecondsSinceEpoch(0);
 }
 
 /// Progress record for "continue watching".

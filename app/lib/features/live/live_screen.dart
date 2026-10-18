@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../blocs/content_bloc.dart';
+import '../../blocs/player_bloc.dart';
 import '../../blocs/playlist_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -49,7 +54,56 @@ class _LiveBodyState extends State<_LiveBody> {
   List<EpgProgram> _epg = const [];
   bool _loadingEpg = false;
 
+  /// Inline preview of the selected channel.
+  ///
+  /// Owned here rather than by the details panel so it can be torn down when
+  /// playback is handed to the full player — otherwise the preview would keep
+  /// playing audio underneath it.
+  PlayerBloc? _preview;
+
+  @override
+  void dispose() {
+    _stopPreview();
+    super.dispose();
+  }
+
+  /// Starts a muted preview of [channel], replacing any previous one.
+  void _startPreview(Channel channel) {
+    _stopPreview();
+    final playlist = getIt<PlaylistRepository>().active;
+    if (playlist == null) return;
+    final url = getIt<PlaylistRepository>().sourceFor(playlist).liveUrl(channel);
+    if (url.isEmpty) return;
+    final settings = context.read<SettingsBloc>().state;
+    _preview = PlayerBloc(
+      settings.subtitleSize,
+      volume: 0,
+      title: getIt<AppConfig>().branding.windowTitle,
+    )..add(PlayerOpened(MediaItem(
+        title: channel.name,
+        url: url,
+        isLive: true,
+        streamId: channel.streamId,
+        kind: 'live',
+        parentId: channel.streamId,
+      )));
+  }
+
+  void _stopPreview() {
+    final bloc = _preview;
+    _preview = null;
+    bloc?.close();
+  }
+
   Future<void> _select(Channel channel) async {
+    // Do not preview a channel the user has hidden behind parental control —
+    // that would show content the PIN is meant to guard.
+    final settings = context.read<SettingsBloc>().state;
+    if (settings.isHidden(channel.categoryId)) {
+      _stopPreview();
+    } else {
+      _startPreview(channel);
+    }
     setState(() {
       _selected = channel;
       _epg = const [];
@@ -80,6 +134,11 @@ class _LiveBodyState extends State<_LiveBody> {
     final url = source.liveUrl(channel);
     if (url.isEmpty) return;
 
+    // Hand the stream over to the full player: stop the preview first so the
+    // two do not play at once, then bring it back when the player is closed.
+    _stopPreview();
+    setState(() {});
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
@@ -96,10 +155,12 @@ class _LiveBodyState extends State<_LiveBody> {
         ),
       ),
     );
-    if (mounted) {
-      await getIt<ContentRepository>().markWatched(playlist, ContentKind.live, channel.streamId);
-      if (mounted) context.read<ContentBloc>().add(const ContentReloaded());
-    }
+    if (!mounted) return;
+    await getIt<ContentRepository>().markWatched(playlist, ContentKind.live, channel.streamId);
+    if (!mounted) return;
+    context.read<ContentBloc>().add(const ContentReloaded());
+    _startPreview(channel);
+    setState(() {});
   }
 
   @override
@@ -171,6 +232,8 @@ class _LiveBodyState extends State<_LiveBody> {
                       channel: _selected,
                       epg: _epg,
                       loading: _loadingEpg,
+                      preview: _preview,
+                      locked: _selected != null && settings.isHidden(_selected!.categoryId),
                       onPlay: _selected == null ? null : () => _play(_selected!),
                     ),
                   ],
@@ -231,12 +294,18 @@ class _DetailsPanel extends StatelessWidget {
     required this.channel,
     required this.epg,
     required this.loading,
+    required this.preview,
+    required this.locked,
     required this.onPlay,
   });
 
   final Channel? channel;
   final List<EpgProgram> epg;
   final bool loading;
+  final PlayerBloc? preview;
+
+  /// True when the channel sits behind parental control; it is not previewed.
+  final bool locked;
   final VoidCallback? onPlay;
 
   @override
@@ -254,13 +323,7 @@ class _DetailsPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    child: SizedBox(
-                      width: 180,
-                      height: 120,
-                      child: SmartImage(path: channel!.icon, fallbackText: channel!.name),
-                    ),
-                  ),
+                  _PreviewBox(channel: channel!, preview: preview, locked: locked),
                   const SizedBox(height: 14),
                   Text(
                     channel!.name,
@@ -293,64 +356,370 @@ class _DetailsPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Expanded(
-                    child: loading
-                        ? const LoadingBlock()
-                        : epg.isEmpty
-                            ? const Text(
-                                'No programme information available for this channel.',
-                                style: TextStyle(color: AppColors.textMuted, fontSize: 11.5),
-                              )
-                            : ListView.builder(
-                                itemCount: epg.length,
-                                itemBuilder: (context, index) {
-                                  final program = epg[index];
-                                  final now = program.isNow;
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.all(9),
-                                    decoration: BoxDecoration(
-                                      color: now
-                                          ? AppColors.blue.withValues(alpha: 0.28)
-                                          : Colors.black.withValues(alpha: 0.25),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: now ? AppColors.gold : AppColors.divider,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${_time(program.start)} - ${_time(program.end)}',
-                                          style: TextStyle(
-                                            color: now ? AppColors.gold : AppColors.textMuted,
-                                            fontSize: 10.5,
-                                            fontWeight: now ? FontWeight.w700 : FontWeight.w400,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          program.title,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                  ),
+                  Expanded(child: _GuideList(epg: epg, loading: loading)),
                 ],
               ),
             ),
     );
   }
+}
 
-  static String _time(DateTime date) =>
-      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+/// Inline preview of the selected channel.
+///
+/// Plays the live stream when it starts, and falls back to a "nothing on air"
+/// card when the channel cannot be opened — an empty black box reads as a bug,
+/// a message does not.
+class _PreviewBox extends StatefulWidget {
+  const _PreviewBox({required this.channel, required this.preview, this.locked = false});
+
+  final Channel channel;
+  final PlayerBloc? preview;
+
+  /// Locked channels are never previewed; they show a padlock card instead.
+  final bool locked;
+
+  @override
+  State<_PreviewBox> createState() => _PreviewBoxState();
+}
+
+class _PreviewBoxState extends State<_PreviewBox> {
+  /// How long to wait for a stream to report playback before calling it off air.
+  static const _startupGrace = Duration(seconds: 12);
+
+  Timer? _giveUp;
+  bool _timedOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _arm();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PreviewBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final channelChanged = oldWidget.channel.streamId != widget.channel.streamId;
+    final blocChanged = !identical(oldWidget.preview, widget.preview);
+    if (channelChanged || blocChanged) {
+      // A fresh stream gets a fresh grace period — otherwise a channel that
+      // timed out once would show the offline card the next time it is opened.
+      _timedOut = false;
+      _arm();
+    }
+  }
+
+  @override
+  void dispose() {
+    _giveUp?.cancel();
+    super.dispose();
+  }
+
+  /// A stream that never reports playback is treated as off air.
+  void _arm() {
+    _giveUp?.cancel();
+    if (widget.preview == null) return;
+    _giveUp = Timer(_startupGrace, () {
+      if (!mounted) return;
+      // Playback may have started while the timer ran; only flag the channel if
+      // it never did.
+      if (widget.preview?.state.playing ?? false) return;
+      setState(() => _timedOut = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = widget.preview;
+    if (widget.locked) return _OfflinePreview(channel: widget.channel, locked: true);
+    if (bloc == null) return _OfflinePreview(channel: widget.channel);
+
+    return BlocBuilder<PlayerBloc, PlayerState>(
+      bloc: bloc,
+      builder: (context, state) {
+        final unavailable = state.error != null || (_timedOut && !state.playing);
+        final live = state.playing && !unavailable;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (live)
+                  Video(
+                    controller: bloc.controller,
+                    controls: NoVideoControls,
+                    fill: Colors.black,
+                  )
+                else if (unavailable)
+                  _OfflinePreview(channel: widget.channel)
+                else
+                  const ColoredBox(
+                    color: Colors.black,
+                    child: Center(
+                      child: SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                    ),
+                  ),
+                if (live)
+                  Positioned(
+                    right: 6,
+                    bottom: 6,
+                    child: _PreviewButton(
+                      icon: state.volume == 0 ? Icons.volume_off : Icons.volume_up,
+                      tooltip: state.volume == 0 ? 'Unmute preview' : 'Mute preview',
+                      onTap: () {
+                        final volume = context.read<SettingsBloc>().state.volume;
+                        bloc.add(PlayerVolumeSet(state.volume == 0 ? volume : 0));
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Placeholder shown when there is nothing to preview on a channel.
+class _OfflinePreview extends StatelessWidget {
+  const _OfflinePreview({required this.channel, this.locked = false});
+
+  final Channel channel;
+
+  /// Shows the parental-control wording rather than the off-air one.
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (channel.icon.isNotEmpty)
+              Opacity(
+                opacity: 0.18,
+                child: SmartImage(path: channel.icon, fallbackText: channel.name),
+              ),
+            ColoredBox(
+              color: Colors.black.withValues(alpha: 0.4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    locked ? Icons.lock_outline : Icons.tv_off,
+                    size: 24,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    locked ? 'Locked channel' : 'Nothing on air right now',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    locked ? 'Press Watch and enter your PIN.' : 'Check back later.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small translucent button used on top of the preview video.
+class _PreviewButton extends StatelessWidget {
+  const _PreviewButton({required this.icon, required this.tooltip, required this.onTap});
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.55),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(5),
+            child: Icon(icon, size: 16, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Programme guide list, scrolled to whichever programme is on air.
+class _GuideList extends StatefulWidget {
+  const _GuideList({required this.epg, required this.loading});
+
+  final List<EpgProgram> epg;
+  final bool loading;
+
+  @override
+  State<_GuideList> createState() => _GuideListState();
+}
+
+class _GuideListState extends State<_GuideList> {
+  /// Roughly one card plus its margin, used to reach the on-air row before the
+  /// list has laid it out.
+  static const _rowEstimate = 72.0;
+
+  final _controller = ScrollController();
+  final _nowKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToNow();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GuideList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.epg, widget.epg)) _scrollToNow();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Brings the on-air programme into view.
+  ///
+  /// A full-day guide usually starts at midnight, so the on-air row is often far
+  /// below the fold and has never been laid out — `ensureVisible` alone cannot
+  /// reach it. Jump to an estimated offset first, then fine-tune on the next
+  /// frame once the rows around it exist.
+  void _scrollToNow() {
+    final index = widget.epg.indexWhere((program) => program.isNow);
+    if (index <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      final target =
+          (index * _rowEstimate).clamp(0.0, _controller.position.maxScrollExtent);
+      _controller.jumpTo(target);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final nowRow = _nowKey.currentContext;
+        if (!mounted || nowRow == null) return;
+        Scrollable.ensureVisible(
+          nowRow,
+          alignment: 0.15,
+          duration: const Duration(milliseconds: 200),
+        );
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.loading) return const LoadingBlock();
+    if (widget.epg.isEmpty) {
+      return const Text(
+        'No programme information available for this channel.',
+        style: TextStyle(color: AppColors.textMuted, fontSize: 11.5),
+      );
+    }
+    return ListView.builder(
+      controller: _controller,
+      itemCount: widget.epg.length,
+      itemBuilder: (context, index) {
+        final program = widget.epg[index];
+        final now = program.isNow;
+        return Container(
+          key: now ? _nowKey : null,
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            color: now
+                ? AppColors.blue.withValues(alpha: 0.28)
+                : Colors.black.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: now ? AppColors.gold : AppColors.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    program.hasUsableTime
+                        ? '${_clock(program.start)} - ${_clock(program.end)}'
+                        : 'Time unavailable',
+                    style: TextStyle(
+                      color: now ? AppColors.gold : AppColors.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: now ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                  if (now) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.red,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Text(
+                        'NOW',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                program.title.isEmpty ? 'No title' : program.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+              ),
+              if (program.description.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  program.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10.5),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static String _clock(DateTime date) => '${twoDigits(date.hour)}:${twoDigits(date.minute)}';
 }

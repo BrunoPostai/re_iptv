@@ -20,6 +20,9 @@ class StoreKeys {
   static const languageCode = 'language-code';
   static const streamFormat = 'stream-format';
   static const subtitleSize = 'subtitle-size';
+
+  /// Volume new streams open at, as a percentage.
+  static const volume = 'volume';
   static const subtitleEnabled = 'subtitle-enabled';
   static const lockCode = 'lock-code';
   static const playlists = 'playlists';
