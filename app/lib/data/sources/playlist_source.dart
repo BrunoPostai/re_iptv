@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../core/utils/http.dart';
 import '../models/models.dart';
 
 enum ContentKind { live, movie, series }
@@ -92,7 +93,7 @@ class XtreamSource implements PlaylistSource {
     Dio? dio,
     this.userAgent = 'IPTVPlayer/1.0',
     this.format = 'default',
-  }) : _dio = dio ?? Dio();
+  }) : _dio = dio ?? createHttpClient();
 
   String get _host => playlist.host.replaceAll(RegExp(r'/+$'), '');
 
@@ -333,7 +334,8 @@ class M3uSource implements PlaylistSource {
   final Set<String> _vodGroups = {};
   final Set<String> _seriesGroups = {};
 
-  M3uSource(this.playlist, {Dio? dio, this.userAgent = 'IPTVPlayer/1.0'}) : _dio = dio ?? Dio();
+  M3uSource(this.playlist, {Dio? dio, this.userAgent = 'IPTVPlayer/1.0'})
+      : _dio = dio ?? createHttpClient();
 
   @override
   Future<PlaylistAuth> authenticate() async {

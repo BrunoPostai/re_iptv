@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/constants.dart';
+import '../../core/utils/http.dart';
 import '../models/models.dart';
 import '../sources/playlist_source.dart';
 import '../storage/app_storage.dart';
@@ -11,7 +12,7 @@ class PlaylistRepository {
 
   final AppStorage _storage;
   final AppConfig _config;
-  final Dio _dio = Dio();
+  final Dio _dio = createHttpClient();
   final Map<String, PlaylistSource> _sources = {};
 
   List<Playlist> get playlists => _storage.loadPlaylists();
