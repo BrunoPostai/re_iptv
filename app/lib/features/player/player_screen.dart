@@ -17,6 +17,7 @@ import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/sources/playlist_source.dart';
+import 'player_stats.dart';
 
 /// Full-screen playback surface with a custom overlay.
 class PlayerScreen extends StatefulWidget {
@@ -38,6 +39,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Timer? _hideTimer;
   bool _overlayVisible = true;
   bool _fullscreen = false;
+
+  /// Whether the mpv diagnostics read-out is on screen.
+  bool _showStats = false;
 
   @override
   void initState() {
@@ -122,6 +126,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         break;
       case LogicalKeyboardKey.keyF:
         _toggleFullscreen();
+        break;
+      case LogicalKeyboardKey.keyI:
+        setState(() => _showStats = !_showStats);
         break;
       case LogicalKeyboardKey.escape:
         Navigator.of(context).maybePop();
@@ -248,6 +255,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   onToggleFullscreen: _toggleFullscreen,
                                   fullscreen: _fullscreen,
                                   subtitleSize: settings.subtitleSize,
+                                  statsVisible: _showStats,
+                                  onToggleStats: () =>
+                                      setState(() => _showStats = !_showStats),
                                 ),
                               ),
                             ),
@@ -255,6 +265,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         );
                       },
                     ),
+                    if (_showStats)
+                      Positioned(
+                        top: 46,
+                        right: 14,
+                        child: PlayerStatsOverlay(
+                          player: context.read<PlayerBloc>().player,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -284,6 +302,8 @@ class _Overlay extends StatelessWidget {
     required this.onToggleFullscreen,
     required this.fullscreen,
     required this.subtitleSize,
+    required this.statsVisible,
+    required this.onToggleStats,
   });
 
   final PlayerState state;
@@ -291,6 +311,8 @@ class _Overlay extends StatelessWidget {
   final VoidCallback onToggleFullscreen;
   final bool fullscreen;
   final int subtitleSize;
+  final bool statsVisible;
+  final VoidCallback onToggleStats;
 
   @override
   Widget build(BuildContext context) {
@@ -417,6 +439,11 @@ class _Overlay extends StatelessWidget {
                     icon: Icons.graphic_eq,
                     tooltip: 'Audio track',
                     onTap: () => _showTrackSheet(context, state, false),
+                  ),
+                  _IconControl(
+                    icon: Icons.speed,
+                    tooltip: statsVisible ? 'Hide playback stats' : 'Show playback stats',
+                    onTap: onToggleStats,
                   ),
                   SizedBox(
                     width: 130,
