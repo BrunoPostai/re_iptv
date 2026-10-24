@@ -12,7 +12,8 @@ import 'package:re_iptv/data/storage/app_storage.dart';
 /// `ContentRepository` keeps the decoded catalogue for the playlist in use. These
 /// tests pin the two things that make that safe — a catalogue is only read once,
 /// and anything that writes to the store drops what was cached — plus the resume
-/// progress the player writes and the detail screens read back.
+/// progress the player writes and the detail screens read back, and the guide,
+/// which is fetched per channel per day rather than per channel switch.
 void main() {
   const playlist =
       Playlist(id: 'p1', name: 'One', url: 'http://playlist.invalid', type: PlaylistType.m3u);
@@ -180,4 +181,88 @@ void main() {
 
     expect(() => channels.add(const Channel(streamId: 9, name: 'Nine')), throwsUnsupportedError);
   });
+
+  /// A repository whose source counts guide requests, so what the repository
+  /// asks the panel for can be observed directly.
+  (ContentRepository, _CountingSource) countingContent({List<EpgProgram> programs = const []}) {
+    final source = _CountingSource(
+      const Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid', type: PlaylistType.xc),
+      programs: programs,
+    );
+    final playlists = _FakePlaylists(storage, AppConfig.fromJson(const {}), source);
+    return (ContentRepository(storage, playlists), source);
+  }
+
+  EpgProgram programme() => EpgProgram(
+        title: 'Evening News',
+        start: DateTime(2026, 1, 1, 20),
+        end: DateTime(2026, 1, 1, 21),
+      );
+
+  test('a channel guide is fetched once and then answered from memory', () async {
+    final (content, source) = countingContent(programs: [programme()]);
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+
+    final first = await content.shortEpg(playlist, 11);
+    final second = await content.shortEpg(playlist, 11);
+
+    expect(first.single.title, 'Evening News');
+    expect(second.single.title, 'Evening News');
+    // Per channel per day: picking a channel again must not ask the panel again,
+    // which is what made browsing a list cost a request per row.
+    expect(source.callsFor(11), 1);
+  });
+
+  test('two lookups of one channel share a single request', () async {
+    final (content, source) = countingContent(programs: [programme()]);
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+
+    await Future.wait([
+      content.shortEpg(playlist, 11),
+      content.shortEpg(playlist, 11),
+    ]);
+
+    expect(source.callsFor(11), 1);
+  });
+
+  test('a channel with no guide is not asked for over and over', () async {
+    final (content, source) = countingContent();
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+
+    expect(await content.shortEpg(playlist, 12), isEmpty);
+    expect(await content.shortEpg(playlist, 12), isEmpty);
+
+    // An empty answer is remembered for [epgEmptyRetry] rather than for the day:
+    // long enough that switching between channels does not re-ask, short enough
+    // that a request which failed is tried again.
+    expect(source.callsFor(12), 1);
+  });
+}
+
+/// A `PlaylistRepository` handing out one counting source.
+class _FakePlaylists extends PlaylistRepository {
+  _FakePlaylists(super._storage, super._config, this._source);
+
+  final _CountingSource _source;
+
+  @override
+  PlaylistSource sourceFor(Playlist playlist) => _source;
+}
+
+/// A source that answers the guide from memory and counts what it was asked for.
+class _CountingSource extends M3uSource {
+  _CountingSource(super.playlist, {this.programs = const []});
+
+  /// What the panel answers with; empty stands for a channel with no guide.
+  final List<EpgProgram> programs;
+
+  final Map<int, int> _calls = {};
+
+  int callsFor(int streamId) => _calls[streamId] ?? 0;
+
+  @override
+  Future<List<EpgProgram>> shortEpg(int streamId) async {
+    _calls[streamId] = callsFor(streamId) + 1;
+    return programs;
+  }
 }

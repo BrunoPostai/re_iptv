@@ -86,3 +86,26 @@ const searchDebounce = Duration(milliseconds: 320);
 /// Progress is written as it goes, so this is the most the resume position can
 /// be behind where the viewer actually stopped.
 const progressSaveInterval = Duration(seconds: 10);
+
+/// How long a channel's guide is remembered after a panel answered with no
+/// listings at all.
+///
+/// A day's listings never change once the panel has answered them, so a channel
+/// that returned programmes is asked for once and served from memory after that.
+/// An empty answer is as likely to be a request that failed as a channel without
+/// a guide, so it is retried rather than remembered for the day.
+const epgEmptyRetry = Duration(minutes: 10);
+
+/// How many channels' guides are held in memory.
+///
+/// Each is a few dozen small programmes, but a long browse can touch a whole
+/// playlist; past this the channel fetched longest ago is dropped.
+const epgCacheLimit = 250;
+
+/// How many channels below the selected one the guide is fetched for in the
+/// background, [epgPrefetchGap] apart.
+const epgPrefetchAhead = 4;
+
+/// Pause between background guide requests, so moving down the list does not
+/// read to the panel as a burst.
+const epgPrefetchGap = Duration(milliseconds: 400);

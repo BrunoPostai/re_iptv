@@ -312,12 +312,45 @@ of the window refusing to close if that handler ever fails to let it go.
 
 ---
 
+## 11. The guide was requested again on every channel switch — `[~]`
+
+The guide in **Live TV** asked the panel for the selected channel's listings on
+every selection — the same day's listings, however often the viewer moved between
+channels — and each request lands exactly when a stream is being opened, which is
+already the slowest part of picking a channel.
+
+**Fixed:** the repository keeps a channel's guide for the day it was fetched for
+(`epgCacheLimit` channels, the oldest dropped), and two lookups of one channel in
+flight at once share a single request. A panel that answers with no listings at
+all is remembered for `epgEmptyRetry` — ten minutes, not the day — because an
+empty answer is as likely to be a request that failed as a channel without a
+guide. The screen also fetches the guide for the `epgPrefetchAhead` channels
+*below* the selection in the background, `epgPrefetchGap` apart, stopping the
+moment the selection moves: the next row down is the likeliest pick.
+
+The request itself is unchanged — the full day's table (`get_simple_data_table`)
+first, the short guide as fallback — which is what the earlier guide fixes
+established.
+
+`app/test/content_repository_test.dart` counts what the repository asks its source
+for: a channel is fetched once and then answered from memory, two lookups at once
+share one request, and an empty answer is not asked for again.
+
+**To check:** move up and down a long channel list. A channel's guide should be
+there as soon as it is picked, and coming back to a channel should not cost a
+fresh request.
+
+**Still open:** the cache is in memory for the session, so a restart forgets it,
+and a guide fetched before midnight is served until that channel is picked again
+after it. Persisting it per day would carry listings across restarts, at the cost
+of a few hundred channels' worth of JSON in the content box.
+
+---
+
 ## Backlog
 
 - Persist the last used volume per stream kind instead of resetting to the
   default on every open.
-- Programme guide: fetch the full day in the background and cache it per channel,
-  so switching channels does not re-request.
 - Preview: optional custom "offline" image via `branding`, if the built-in card
   is not wanted.
 - Save progress on window close as well as as it goes, so a resume lands exactly

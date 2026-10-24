@@ -180,12 +180,38 @@ class ContentRepository {
     }
   }
 
-  Future<List<EpgProgram>> shortEpg(Playlist playlist, int streamId) async {
+  /// Programme guide for one channel, kept for the day it was fetched for.
+  ///
+  /// Every channel switch used to cost a request to the panel — the slowest part
+  /// of picking a channel, asking again for the same day's listings. A channel is
+  /// fetched once per day now: repeats are answered from memory, and two lookups
+  /// of one channel at the same time share a single request.
+  Future<List<EpgProgram>> shortEpg(Playlist playlist, int streamId) {
+    final catalogue = _catalogueFor(playlist);
+    final cached = catalogue.epg[streamId];
+    if (cached != null && cached.isCurrent) return Future.value(cached.programs);
+    final pending = catalogue.epgPending[streamId];
+    if (pending != null) return pending;
+    final request = _fetchEpg(playlist, streamId);
+    catalogue.epgPending[streamId] = request;
+    return request.whenComplete(() => catalogue.epgPending.remove(streamId));
+  }
+
+  Future<List<EpgProgram>> _fetchEpg(Playlist playlist, int streamId) async {
+    var programs = const <EpgProgram>[];
     try {
-      return await _playlists.sourceFor(playlist).shortEpg(streamId);
+      programs = await _playlists.sourceFor(playlist).shortEpg(streamId);
     } catch (_) {
-      return const [];
+      // A channel whose panel will not answer still plays; the guide is a nicety.
     }
+    final cache = _catalogueFor(playlist).epg;
+    // Re-inserted so that the oldest entry is the one dropped when the cache is
+    // full, rather than whichever channel was looked at first.
+    cache
+      ..remove(streamId)
+      ..[streamId] = _EpgListings(programs);
+    if (cache.length > epgCacheLimit) cache.remove(cache.keys.first);
+    return programs;
   }
 
   // -------------------------------------------------------------- watch state
@@ -307,4 +333,26 @@ class _Catalogue {
   List<Channel>? channels;
   List<Movie>? movies;
   List<Series>? series;
+
+  /// Guide listings per channel, and the requests still in flight, so that two
+  /// selections of one channel make a single request.
+  final Map<int, _EpgListings> epg = {};
+  final Map<int, Future<List<EpgProgram>>> epgPending = {};
+}
+
+/// One channel's guide listings, and when the panel answered with them.
+class _EpgListings {
+  _EpgListings(this.programs) : fetchedAt = DateTime.now();
+
+  final List<EpgProgram> programs;
+  final DateTime fetchedAt;
+
+  /// The day's listings do not change once fetched, so they are kept until the
+  /// day does. An empty answer is not held for nearly as long: it is as likely to
+  /// be a request that failed as a channel with no guide at all.
+  bool get isCurrent {
+    final now = DateTime.now();
+    if (programs.isEmpty && now.difference(fetchedAt) >= epgEmptyRetry) return false;
+    return fetchedAt.year == now.year && fetchedAt.month == now.month && fetchedAt.day == now.day;
+  }
 }

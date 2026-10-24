@@ -9,6 +9,7 @@ import '../../blocs/player_bloc.dart';
 import '../../blocs/playlist_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
+import '../../core/constants.dart';
 import '../../core/di/injector.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -77,9 +78,14 @@ class _LiveBodyState extends State<_LiveBody> {
   /// has started is discarded.
   int _selection = 0;
 
+  /// Identifies the guide prefetch run for the current selection, so that a new
+  /// selection stops the previous one walking the list.
+  int _prefetch = 0;
+
   @override
   void dispose() {
     _selectDebounce?.cancel();
+    _prefetch++;
     _stopPreview();
     super.dispose();
   }
@@ -140,7 +146,32 @@ class _LiveBodyState extends State<_LiveBody> {
       if (!mounted || token != _selection) return;
       setState(() => _startPreview(channel));
       _loadEpg(channel, token);
+      _prefetchEpg(channel);
     });
+  }
+
+  /// Fetches the guide for the channels just below [channel] in the visible list,
+  /// one request at a time.
+  ///
+  /// The guide is the slowest part of picking a channel and the next row down is
+  /// the likeliest pick, so those are fetched while the viewer looks at this one.
+  /// Requests go out [epgPrefetchGap] apart and stop as soon as the selection
+  /// moves; a channel already fetched is answered from the repository's cache, so
+  /// settling on a channel leaves the few below it ready instead of costing a
+  /// request per row.
+  Future<void> _prefetchEpg(Channel channel) async {
+    final playlist = getIt<PlaylistRepository>().active;
+    if (playlist == null) return;
+    final channels = context.read<ContentBloc>().state.channels;
+    final at = channels.indexWhere((c) => c.streamId == channel.streamId);
+    if (at < 0) return;
+    final token = ++_prefetch;
+    final content = getIt<ContentRepository>();
+    for (final next in channels.skip(at + 1).take(epgPrefetchAhead)) {
+      await Future<void>.delayed(epgPrefetchGap);
+      if (!mounted || token != _prefetch) return;
+      await content.shortEpg(playlist, next.streamId);
+    }
   }
 
   Future<void> _loadEpg(Channel channel, int token) async {
