@@ -199,7 +199,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
       player.stream.buffering.listen((v) => add(_Emit(state.copyWith(buffering: v)))),
       player.stream.completed.listen((v) => add(_Emit(state.copyWith(completed: v)))),
       player.stream.position.listen((v) => add(_Emit(state.copyWith(position: v)))),
-      player.stream.duration.listen((v) => add(_Emit(state.copyWith(duration: v)))),
+      player.stream.duration.listen((v) {
+        add(_Emit(state.copyWith(duration: v)));
+        _checkResume(v);
+      }),
       player.stream.volume.listen((v) => add(_Emit(state.copyWith(volume: v)))),
       player.stream.tracks.listen((v) => add(_Emit(state.copyWith(tracks: v)))),
       player.stream.track.listen((v) => add(_Emit(state.copyWith(
@@ -215,6 +218,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   final String _title;
   final bool _hardwareDecoding;
   final LiveTuning _liveTuning;
+
+  /// Where this stream was left off. Handed to libmpv as it opens, and kept for
+  /// [_checkResume] in case the stream ignores it.
+  Duration? _resumeAt;
+
+  /// The one-shot check armed once the demuxer has reported a duration.
+  Timer? _resumeCheck;
 
   late final Player player;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
@@ -251,10 +261,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     if (event.item.isLive) {
       await applyLiveTuning(player, _liveTuning);
     }
-    await player.open(Media(event.item.url), play: true);
-    if (event.startAt > Duration.zero) {
-      await player.seek(event.startAt);
-    }
+    final resume = event.startAt > Duration.zero ? event.startAt : null;
+    _resumeAt = resume;
+    _resumeCheck?.cancel();
+    _resumeCheck = null;
+    await player.open(
+      Media(
+        event.item.url,
+        // Handed to libmpv as part of opening the file, because mpv applies it
+        // in its `on_load` hook, before it starts decoding. Seeking straight
+        // after the open instead sends the command while the stream is still
+        // being opened and mpv drops it: a resumed film started from the top.
+        start: resume,
+      ),
+      play: true,
+    );
   }
 
   Future<void> _onPlayPause(PlayerPlayPause event, Emitter<PlayerState> emit) async {
@@ -262,7 +283,31 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   }
 
   Future<void> _onSeeked(PlayerSeeked event, Emitter<PlayerState> emit) async {
+    // The viewer is driving, so whatever this stream was meant to resume to is
+    // no longer wanted.
+    _resumeAt = null;
+    _resumeCheck?.cancel();
+    _resumeCheck = null;
     await player.seek(event.position);
+  }
+
+  /// Nudges playback to the resume position if opening the stream did not.
+  ///
+  /// `Media.start` is applied by mpv's own `on_load` hook, which is how libmpv
+  /// is meant to be told to open a stream part-way in — but it does not stick
+  /// for every stream (the package has this open: `media_kit` #1215). So once
+  /// the demuxer has reported a duration, and given [_resumeSettle] for the
+  /// position stream to catch up, a stream still sitting near its beginning is
+  /// seeked instead. Looked at once, and never after the viewer seeks.
+  void _checkResume(Duration duration) {
+    if (_resumeAt == null || duration <= Duration.zero || _resumeCheck != null) return;
+    _resumeCheck = Timer(_resumeSettle, () {
+      _resumeCheck = null;
+      final resume = _resumeAt;
+      if (resume == null) return;
+      _resumeAt = null;
+      if (state.position < resume - _resumeSlack) player.seek(resume);
+    });
   }
 
   Future<void> _onVolume(PlayerVolumeSet event, Emitter<PlayerState> emit) async {
@@ -293,6 +338,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
 
   @override
   Future<void> close() async {
+    _resumeCheck?.cancel();
     for (final sub in _subscriptions) {
       await sub.cancel();
     }
@@ -300,6 +346,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     return super.close();
   }
 }
+
+/// How long playback is given to settle before checking whether it started
+/// where it was asked to: the position stream needs a moment to report the
+/// stream's real position.
+const _resumeSettle = Duration(seconds: 2);
+
+/// A stream that started this far before where it was asked to counts as having
+/// started at the beginning. mpv rounds a start back to the previous keyframe,
+/// and keyframes can be seconds apart on a broadcast stream.
+const _resumeSlack = Duration(seconds: 10);
 
 class _Emit extends PlayerEvent {
   const _Emit(this.state);
