@@ -89,6 +89,16 @@ void main() {
     expect(films.single.position, const Duration(minutes: 40));
   });
 
+  test('clearing one entry leaves the rest of the list alone', () async {
+    await content.saveProgress(playlist, film(position: const Duration(minutes: 40)));
+    await content.saveProgress(playlist, episode());
+
+    await content.clearProgress(playlist, film());
+
+    expect(await content.continueWatching(playlist, ContentKind.movie), isEmpty);
+    expect((await content.continueWatching(playlist, ContentKind.series)).map((p) => p.id), ['3:9']);
+  });
+
   test('a catalogue is read once and then served from memory', () async {
     await storage.saveChannels(box, const [Channel(streamId: 1, name: 'One')]);
 

@@ -125,7 +125,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
       episodeNum: item.episodeNum,
       containerExtension: item.containerExtension,
     );
-    await content.saveProgress(playlist, progress);
+    if (state.completed) {
+      // Watched to the end, so there is nothing left to resume: the entry goes
+      // and playing it again starts the film over rather than dropping the
+      // viewer on its last minute.
+      await content.clearProgress(playlist, progress);
+    } else {
+      await content.saveProgress(playlist, progress);
+    }
     if (state.completed || state.progress > 0.92) {
       await content.markWatched(
         playlist,

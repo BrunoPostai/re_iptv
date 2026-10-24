@@ -226,13 +226,28 @@ class ContentRepository {
     return list;
   }
 
+  /// Which list a resume entry belongs in: an episode is watched as part of its
+  /// series, not alongside the films.
+  static String progressKey(String kind) =>
+      kind == 'episode' ? ContentKeys.continueSeries : ContentKeys.continueMovies;
+
   Future<void> saveProgress(Playlist playlist, WatchProgress progress) async {
     final box = await _box(playlist);
-    final key = progress.kind == 'episode' ? ContentKeys.continueSeries : ContentKeys.continueMovies;
+    final key = progressKey(progress.kind);
     final list = _storage.progressList(box, key).toList()
       ..removeWhere((e) => e.id == progress.id)
       ..insert(0, progress);
     await _storage.saveProgressList(box, key, list.take(50).toList());
+  }
+
+  /// Drops one resume entry and leaves the rest of the list alone, so that an
+  /// item watched to the end starts over instead of resuming on its last minute.
+  Future<void> clearProgress(Playlist playlist, WatchProgress progress) async {
+    final box = await _box(playlist);
+    final key = progressKey(progress.kind);
+    final list = _storage.progressList(box, key).toList()
+      ..removeWhere((e) => e.id == progress.id);
+    await _storage.saveProgressList(box, key, list);
   }
 
   Future<void> clearWatchLists(Playlist playlist) async {
