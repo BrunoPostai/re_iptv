@@ -58,35 +58,59 @@ class _LiveBodyState extends State<_LiveBody> {
   ///
   /// Owned here rather than by the details panel so it can be torn down when
   /// playback is handed to the full player — otherwise the preview would keep
-  /// playing audio underneath it.
+  /// playing audio underneath it. One player is reused for the lifetime of the
+  /// screen: opening a stream on it replaces whatever it was playing, so
+  /// browsing the list does not spawn a libmpv instance per channel.
   PlayerBloc? _preview;
+
+  /// Bumped whenever the preview is (re)started, so the box drops a stale
+  /// "off air" verdict even when the same channel is opened twice.
+  int _previewSequence = 0;
+
+  /// Opening a stream costs a player plus a network connection, so the preview
+  /// and the guide request wait for the selection to settle — running down the
+  /// list must not open every channel it passes over.
+  static const _selectDelay = Duration(milliseconds: 350);
+  Timer? _selectDebounce;
+
+  /// Identifies the most recent selection; work that finishes after a newer one
+  /// has started is discarded.
+  int _selection = 0;
 
   @override
   void dispose() {
+    _selectDebounce?.cancel();
     _stopPreview();
     super.dispose();
   }
 
   /// Starts a muted preview of [channel], replacing any previous one.
   void _startPreview(Channel channel) {
-    _stopPreview();
     final playlist = getIt<PlaylistRepository>().active;
-    if (playlist == null) return;
-    final url = getIt<PlaylistRepository>().sourceFor(playlist).liveUrl(channel);
-    if (url.isEmpty) return;
+    final url = playlist == null
+        ? ''
+        : getIt<PlaylistRepository>().sourceFor(playlist).liveUrl(channel);
+    if (url.isEmpty) {
+      // Nothing to open — drop the preview rather than leave the previous
+      // channel playing under the new channel's name.
+      _stopPreview();
+      return;
+    }
     final settings = context.read<SettingsBloc>().state;
-    _preview = PlayerBloc(
+    final bloc = _preview ??= PlayerBloc(
       settings.subtitleSize,
       volume: 0,
       title: getIt<AppConfig>().branding.windowTitle,
-    )..add(PlayerOpened(MediaItem(
-        title: channel.name,
-        url: url,
-        isLive: true,
-        streamId: channel.streamId,
-        kind: 'live',
-        parentId: channel.streamId,
-      )));
+    );
+    _previewSequence++;
+    bloc.add(PlayerOpened(MediaItem(
+      title: channel.name,
+      url: url,
+      isLive: true,
+      streamId: channel.streamId,
+      kind: 'live',
+      parentId: channel.streamId,
+    )));
   }
 
   void _stopPreview() {
@@ -95,27 +119,35 @@ class _LiveBodyState extends State<_LiveBody> {
     bloc?.close();
   }
 
-  Future<void> _select(Channel channel) async {
+  void _select(Channel channel) {
     // Do not preview a channel the user has hidden behind parental control —
     // that would show content the PIN is meant to guard.
     final settings = context.read<SettingsBloc>().state;
-    if (settings.isHidden(channel.categoryId)) {
-      _stopPreview();
-    } else {
-      _startPreview(channel);
-    }
+    final locked = settings.isHidden(channel.categoryId);
+    final token = ++_selection;
+    _selectDebounce?.cancel();
+    if (locked) _stopPreview();
     setState(() {
       _selected = channel;
       _epg = const [];
-      _loadingEpg = true;
+      _loadingEpg = !locked;
     });
+    if (locked) return;
+    _selectDebounce = Timer(_selectDelay, () {
+      if (!mounted || token != _selection) return;
+      setState(() => _startPreview(channel));
+      _loadEpg(channel, token);
+    });
+  }
+
+  Future<void> _loadEpg(Channel channel, int token) async {
     final playlist = getIt<PlaylistRepository>().active;
     if (playlist == null) {
-      setState(() => _loadingEpg = false);
+      if (mounted && token == _selection) setState(() => _loadingEpg = false);
       return;
     }
     final programs = await getIt<ContentRepository>().shortEpg(playlist, channel.streamId);
-    if (!mounted) return;
+    if (!mounted || token != _selection) return;
     setState(() {
       _epg = programs;
       _loadingEpg = false;
@@ -128,6 +160,10 @@ class _LiveBodyState extends State<_LiveBody> {
       final ok = await requestPin(context, expected: settings.pin, title: 'Parental control');
       if (!ok || !mounted) return;
     }
+    // A deliberate play: abandon whatever is still pending for the previously
+    // selected channel.
+    _selectDebounce?.cancel();
+    _selection++;
     final playlist = getIt<PlaylistRepository>().active;
     if (playlist == null) return;
     final source = getIt<PlaylistRepository>().sourceFor(playlist);
@@ -159,8 +195,7 @@ class _LiveBodyState extends State<_LiveBody> {
     await getIt<ContentRepository>().markWatched(playlist, ContentKind.live, channel.streamId);
     if (!mounted) return;
     context.read<ContentBloc>().add(const ContentReloaded());
-    _startPreview(channel);
-    setState(() {});
+    setState(() => _startPreview(channel));
   }
 
   @override
@@ -233,6 +268,7 @@ class _LiveBodyState extends State<_LiveBody> {
                       epg: _epg,
                       loading: _loadingEpg,
                       preview: _preview,
+                      previewSequence: _previewSequence,
                       locked: _selected != null && settings.isHidden(_selected!.categoryId),
                       onPlay: _selected == null ? null : () => _play(_selected!),
                     ),
@@ -295,6 +331,7 @@ class _DetailsPanel extends StatelessWidget {
     required this.epg,
     required this.loading,
     required this.preview,
+    required this.previewSequence,
     required this.locked,
     required this.onPlay,
   });
@@ -303,6 +340,9 @@ class _DetailsPanel extends StatelessWidget {
   final List<EpgProgram> epg;
   final bool loading;
   final PlayerBloc? preview;
+
+  /// Increments each time a stream is opened into [preview].
+  final int previewSequence;
 
   /// True when the channel sits behind parental control; it is not previewed.
   final bool locked;
@@ -323,7 +363,12 @@ class _DetailsPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PreviewBox(channel: channel!, preview: preview, locked: locked),
+                  _PreviewBox(
+                    channel: channel!,
+                    preview: preview,
+                    sequence: previewSequence,
+                    locked: locked,
+                  ),
                   const SizedBox(height: 14),
                   Text(
                     channel!.name,
@@ -370,10 +415,18 @@ class _DetailsPanel extends StatelessWidget {
 /// card when the channel cannot be opened — an empty black box reads as a bug,
 /// a message does not.
 class _PreviewBox extends StatefulWidget {
-  const _PreviewBox({required this.channel, required this.preview, this.locked = false});
+  const _PreviewBox({
+    required this.channel,
+    required this.preview,
+    this.sequence = 0,
+    this.locked = false,
+  });
 
   final Channel channel;
   final PlayerBloc? preview;
+
+  /// Changes every time a stream is opened, even on the same channel.
+  final int sequence;
 
   /// Locked channels are never previewed; they show a padlock card instead.
   final bool locked;
@@ -400,7 +453,8 @@ class _PreviewBoxState extends State<_PreviewBox> {
     super.didUpdateWidget(oldWidget);
     final channelChanged = oldWidget.channel.streamId != widget.channel.streamId;
     final blocChanged = !identical(oldWidget.preview, widget.preview);
-    if (channelChanged || blocChanged) {
+    final restarted = oldWidget.sequence != widget.sequence;
+    if (channelChanged || blocChanged || restarted) {
       // A fresh stream gets a fresh grace period — otherwise a channel that
       // timed out once would show the offline card the next time it is opened.
       _timedOut = false;
@@ -435,6 +489,13 @@ class _PreviewBoxState extends State<_PreviewBox> {
 
     return BlocBuilder<PlayerBloc, PlayerState>(
       bloc: bloc,
+      // [state] is only read for these three; the position libmpv reports
+      // several times a second must not rebuild the preview — and with it the
+      // video surface — for as long as a channel is playing.
+      buildWhen: (previous, current) =>
+          previous.playing != current.playing ||
+          previous.error != current.error ||
+          previous.volume != current.volume,
       builder: (context, state) {
         final unavailable = state.error != null || (_timedOut && !state.playing);
         final live = state.playing && !unavailable;

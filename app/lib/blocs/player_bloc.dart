@@ -214,6 +214,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     emit(state.copyWith(
       item: event.item,
       isLive: event.item.isLive,
+      // A reused player is still reporting the previous stream as playing until
+      // libmpv catches up; clear it so the new stream starts from "loading".
+      playing: false,
       error: null,
       clearError: true,
       controlsVisible: true,
