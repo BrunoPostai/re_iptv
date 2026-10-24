@@ -178,18 +178,34 @@ a very large catalogue — the parsing and the map lookups are simply no longer
 spent there.
 
 **Deliberately not moved:** `json.encode` when saving after a sync. Getting the
-models *to* an isolate costs a full copy of the catalogue, so encoding there
-would trade one pass over the data for another; the save also already sits behind
-a progress spinner. The real answer to both is to stop re-reading the catalogue at
-all — see the Backlog.
+models *to* an isolate costs a full copy of the catalogue, so encoding there would
+trade one pass over the data for another; the save also already sits behind a
+progress spinner.
+
+### The catalogue is read once per playlist
+
+A catalogue that is never read twice is never copied twice, so `ContentRepository`
+holds the decoded one for the playlist in use. Moving between Live, Films and
+Series is now instant instead of a fresh decode each way, and it takes the decode
+out of search entirely — every search read all three kinds out of their boxes in
+full, on top of its own debounce.
+
+Only one playlist is held, and each of the three writers to the store — `sync`,
+`clearPlaylistCache`, `clearEverything` — drops it. `sync` drops it *before* it
+writes, so a sync that fails halfway cannot leave the cache serving the catalogue
+it just half-replaced. `app/test/content_repository_test.dart` covers reading once,
+the per-kind category keys, the eviction, both clearing paths, the failed sync, and
+that the lists handed out cannot be modified in place.
+
+**Still open:** typing in the **browse** search box has no debounce, so every
+keystroke lowercases the name of every item in the catalogue before matching. The
+search screen debounces for 320 ms; the grid does not. Cheap to postpone now that
+the decode is gone, but it is the next thing that will stutter on a large playlist.
 
 ---
 
 ## Backlog
 
-- Keep the decoded catalogue in memory for the active playlist instead of reading
-  it back out of its box on every reload, so moving between Live, Films and Series
-  costs nothing. Needs invalidating on sync and on playlist change.
 - Persist the last used volume per stream kind instead of resetting to the
   default on every open.
 - Programme guide: fetch the full day in the background and cache it per channel,
