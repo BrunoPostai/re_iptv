@@ -142,6 +142,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  /// Leaves the player, saving the position first.
+  ///
+  /// The screen that pushed this one re-reads the resume position the moment the
+  /// route pops, and a write left to the queue is still in flight by then:
+  /// backing out to the film's own page and pressing play again looked like no
+  /// progress had been made at all, while going back further — to the list — and
+  /// opening the film again gave the write time to land and resumed properly.
+  Future<void> _exit() async {
+    await _flushProgress();
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
+  /// Queues the current position and waits for the queue to drain.
+  Future<void> _flushProgress() {
+    _persistProgress();
+    return _progressWrites;
+  }
+
   Future<void> _toggleFullscreen() async {
     _fullscreen = !_fullscreen;
     await windowManager.setFullScreen(_fullscreen);
@@ -177,7 +195,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         if (_fullscreen) {
           _toggleFullscreen();
         } else {
-          Navigator.of(context).maybePop();
+          _exit();
         }
         break;
       default:
@@ -332,7 +350,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 ignoring: !_overlayVisible,
                                 child: _Overlay(
                                   state: state,
-                                  onBack: () => Navigator.of(context).maybePop(),
+                                  onBack: _exit,
                                   onToggleFullscreen: _toggleFullscreen,
                                   fullscreen: _fullscreen,
                                   subtitleSize: settings.subtitleSize,
