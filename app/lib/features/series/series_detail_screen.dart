@@ -99,7 +99,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
       ),
     );
     if (mounted && context.mounted) {
-      context.read<ContentBloc>().add(const ContentReloaded());
+      context.read<ContentBloc>().add(const ContentWatchStateReloaded());
       await _load();
     }
   }

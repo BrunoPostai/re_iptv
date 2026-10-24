@@ -153,18 +153,13 @@ class ContentRefreshed extends ContentEvent {
   const ContentRefreshed();
 }
 
-/// Re-reads the cached catalogue (e.g. after returning from the player) while
-/// keeping the current category selection and query.
-class ContentReloaded extends ContentEvent {
-  const ContentReloaded();
-}
-
 /// Refreshes only the watch-state lists — favourites and continue-watching —
 /// without re-reading and re-decoding the whole catalogue.
 ///
-/// Returning from the player only changes watch state, but [ContentReloaded]
-/// also re-parses every channel/movie/series, which freezes the UI for a moment
-/// on large playlists.
+/// Leaving the player, or coming back from a detail screen, only changes watch
+/// state, but re-reading the catalogue re-parses every channel, movie and
+/// series, which freezes the UI for a moment on a large playlist. Use
+/// [ContentRefreshed] instead when the provider itself needs re-reading.
 class ContentWatchStateReloaded extends ContentEvent {
   const ContentWatchStateReloaded();
 }
@@ -184,7 +179,6 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
     on<ContentSortChanged>(_onSortChanged);
     on<ContentFavoriteToggled>(_onFavoriteToggled);
     on<ContentRefreshed>(_onRefreshed);
-    on<ContentReloaded>(_onReloaded);
     on<ContentWatchStateReloaded>(_onWatchStateReloaded);
     on<ContentProgressSaved>(_onProgressSaved);
   }
@@ -351,10 +345,6 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
     final playlist = _active;
     if (playlist == null) return;
     await _content.sync(playlist);
-    await _load(state.kind, emit);
-  }
-
-  Future<void> _onReloaded(ContentReloaded event, Emitter<ContentState> emit) async {
     await _load(state.kind, emit);
   }
 

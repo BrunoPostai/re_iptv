@@ -52,7 +52,7 @@ class _BrowserBody extends StatelessWidget {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
     );
-    bloc.add(const ContentReloaded());
+    bloc.add(const ContentWatchStateReloaded());
   }
 
   Future<void> _openSeries(BuildContext context, Series series) async {
@@ -60,7 +60,7 @@ class _BrowserBody extends StatelessWidget {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => SeriesDetailScreen(series: series)),
     );
-    bloc.add(const ContentReloaded());
+    bloc.add(const ContentWatchStateReloaded());
   }
 
   @override
