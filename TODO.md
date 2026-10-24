@@ -129,8 +129,6 @@ Still open:
   want the same treatment once a provider that needs it turns up.
 - The overlay polls with `Timer.periodic` and is not localised; fine for a
   diagnostic, but it should move to the language files if it is kept.
-- For **movies/series** the position ticks still rebuild the overlay, because the
-  scrubber needs them; scope that rebuild to the slider alone.
 
 What to try if the numbers point at the provider, now that they no longer need a
 rebuild: in `player.live_tuning`, `reconnect: true` for streams that drop
@@ -149,6 +147,7 @@ plus two smaller ones found next to it:
 | Category counts rescanned the entire catalogue once per category row, making every filter, sort and *keystroke* in search `O(categories × items)` | counted in one pass |
 | The favourites row tested membership against a `List`, so it was `O(items × favourites)` | tests against `state.favorites`, which is already a `Set` |
 | `Dio` was created without timeouts, so a provider that stops answering hangs the caller — and the guide's two-endpoint fallback never reaches its second endpoint | one shared client in `core/utils/http.dart` with a 15 s connect and 30 s receive timeout |
+| While a movie or an episode played, every position tick (several a second) rebuilt the whole overlay — progress bar, buttons, volume slider — when only the scrubber and the elapsed time had changed | the overlay ignores a position-only change for every kind now; the scrubber and the label read the state through `_PositionBuilder`, so a tick repaints two widgets |
 
 **To check:** open a movie, back out (the grid should return without a pause),
 play one and come back, and type in search on a large playlist. If a provider is
@@ -195,10 +194,21 @@ it just half-replaced. `app/test/content_repository_test.dart` covers reading on
 the per-kind category keys, the eviction, both clearing paths, the failed sync, and
 that the lists handed out cannot be modified in place.
 
-**Still open:** typing in the **browse** search box has no debounce, so every
-keystroke lowercases the name of every item in the catalogue before matching. The
-search screen debounces for 320 ms; the grid does not. Cheap to postpone now that
-the decode is gone, but it is the next thing that will stutter on a large playlist.
+### Searching waits for typing to pause
+
+Filtering lower-cases the name of every item in the catalogue and a query change
+arrives on every keystroke, so a query is now held back until typing stops — the
+same 320 ms the search screen already used (`searchDebounce`). The query itself is
+recorded straight away, a later keystroke supersedes the one that is waiting, and
+selecting a category or switching kind drops the pending filter entirely. A burst
+therefore costs one pass, and it is the last query that is filtered for.
+`app/test/content_bloc_test.dart` covers the deferral, the burst and the category
+change — the first two fail if the filter runs per keystroke, which is how they
+were checked.
+
+**To check:** type in the browse search box on a large playlist. The list should
+settle once you stop rather than narrowing letter by letter, and clearing the box
+should bring everything back.
 
 ---
 
