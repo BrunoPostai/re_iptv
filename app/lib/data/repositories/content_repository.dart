@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:hive/hive.dart';
@@ -16,6 +17,23 @@ class ContentRepository {
   final PlaylistRepository _playlists;
 
   Future<Box<dynamic>> _box(Playlist playlist) => _storage.openContentBox(playlist.id);
+
+  /// The decoded catalogue, held for the playlist in use.
+  ///
+  /// Reading a catalogue back out of its box costs a JSON parse plus a model per
+  /// entry in a background isolate, and then a copy of every object back onto the
+  /// UI isolate. Without this, moving between Live, Films and Series paid that
+  /// again every time — and so did every search, which reads all three kinds out
+  /// in full. Only one playlist is kept: a large catalogue runs to tens of
+  /// megabytes, and another playlist's can be read when the user switches to it.
+  final Map<String, _Catalogue> _catalogues = {};
+
+  _Catalogue _catalogueFor(Playlist playlist) {
+    final cached = _catalogues[playlist.id];
+    if (cached != null) return cached;
+    _catalogues.clear();
+    return _catalogues[playlist.id] = _Catalogue();
+  }
 
   static ContentKindKey kindKey(ContentKind kind) => switch (kind) {
         ContentKind.live => ContentKindKey.live,
@@ -38,16 +56,37 @@ class ContentRepository {
   // ------------------------------------------------------------------- load
 
   Future<List<Category>> categories(Playlist playlist, ContentKind kind) async {
+    final catalogue = _catalogueFor(playlist);
+    final cached = catalogue.categories[kind];
+    if (cached != null) return cached;
     final box = await _box(playlist);
-    return _storage.categories(box, kindKey(kind));
+    final loaded = await _storage.categories(box, kindKey(kind));
+    return catalogue.categories[kind] = UnmodifiableListView(loaded);
   }
 
-  Future<List<Channel>> channels(Playlist playlist) async =>
-      _storage.channels(await _box(playlist));
+  Future<List<Channel>> channels(Playlist playlist) async {
+    final catalogue = _catalogueFor(playlist);
+    final cached = catalogue.channels;
+    if (cached != null) return cached;
+    final box = await _box(playlist);
+    return catalogue.channels = UnmodifiableListView(await _storage.channels(box));
+  }
 
-  Future<List<Movie>> movies(Playlist playlist) async => _storage.movies(await _box(playlist));
+  Future<List<Movie>> movies(Playlist playlist) async {
+    final catalogue = _catalogueFor(playlist);
+    final cached = catalogue.movies;
+    if (cached != null) return cached;
+    final box = await _box(playlist);
+    return catalogue.movies = UnmodifiableListView(await _storage.movies(box));
+  }
 
-  Future<List<Series>> series(Playlist playlist) async => _storage.series(await _box(playlist));
+  Future<List<Series>> series(Playlist playlist) async {
+    final catalogue = _catalogueFor(playlist);
+    final cached = catalogue.series;
+    if (cached != null) return cached;
+    final box = await _box(playlist);
+    return catalogue.series = UnmodifiableListView(await _storage.series(box));
+  }
 
   bool get hasCache => false;
 
@@ -62,6 +101,9 @@ class ContentRepository {
     Playlist playlist, {
     void Function(String stage, double progress)? onProgress,
   }) async {
+    // Dropped before anything is written, not after: a sync that fails halfway
+    // has still changed the store, and the cache must not outlive that.
+    _catalogues.remove(playlist.id);
     final source = _playlists.sourceFor(playlist);
     final box = await _box(playlist);
     onProgress?.call('authenticating', 0.05);
@@ -208,12 +250,14 @@ class ContentRepository {
 
   /// Removes configuration, cached content and watch state for one playlist.
   Future<void> clearPlaylistCache(Playlist playlist) async {
+    _catalogues.remove(playlist.id);
     final box = await _box(playlist);
     await box.clear();
   }
 
   /// Removes every cached box and the global settings box.
   Future<void> clearEverything() async {
+    _catalogues.clear();
     await _storage.clearAll();
   }
 
@@ -236,4 +280,16 @@ class ContentRepository {
     final all = await series(playlist);
     return all.where((s) => s.name.toLowerCase().contains(q)).take(300).toList();
   }
+}
+
+/// One playlist's decoded content, filled in as each kind is asked for.
+///
+/// These lists go straight out to callers, so they are wrapped unmodifiable: code
+/// that sorted or trimmed one in place would otherwise corrupt the cache for every
+/// later read, and would do it silently.
+class _Catalogue {
+  final Map<ContentKind, List<Category>> categories = {};
+  List<Channel>? channels;
+  List<Movie>? movies;
+  List<Series>? series;
 }
