@@ -33,6 +33,11 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   int? _season;
   final Map<String, WatchProgress> _progress = {};
 
+  /// Every episode of the series, in order, each carrying the whole list as its
+  /// siblings — what lets the player step to the next episode without coming
+  /// back through this page.
+  List<MediaItem> _queue = const [];
+
   Playlist? get _playlist => getIt<PlaylistRepository>().active;
 
   @override
@@ -52,14 +57,74 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
     // waits for the metadata either way, but the positions must not.
     final watchState = _refreshWatchState();
     final info = await getIt<ContentRepository>().seriesInfo(playlist, widget.series.seriesId);
+    final queue = _buildQueue(info, playlist);
     await watchState;
     if (!mounted) return;
     setState(() {
       _info = info;
+      _queue = queue;
       _season = info.seasons.isEmpty ? null : info.seasons.first;
       _loading = false;
     });
   }
+
+  /// One playable episode.
+  MediaItem _mediaItem(
+    Series series,
+    Episode episode,
+    Playlist playlist, {
+    List<MediaItem> siblings = const [],
+  }) {
+    return MediaItem(
+      title: series.name,
+      subtitle: episode.title.isEmpty
+          ? 'S${episode.season} · E${episode.episodeNum}'
+          : 'S${episode.season} · E${episode.episodeNum} · ${episode.title}',
+      image: episode.image.isNotEmpty ? episode.image : series.cover,
+      url: getIt<PlaylistRepository>().sourceFor(playlist).episodeUrl(episode),
+      streamId: int.tryParse(episode.id) ?? episode.episodeNum,
+      kind: 'episode',
+      parentId: series.seriesId,
+      season: episode.season,
+      episodeNum: episode.episodeNum,
+      containerExtension: episode.containerExtension,
+      siblings: siblings,
+    );
+  }
+
+  /// The series' episodes in season then episode order.
+  ///
+  /// Sorted rather than left as the panel sent them: `Next` has to mean the
+  /// episode after this one, and a panel that lists `1, 10, 2` would otherwise
+  /// put episode 10 next.
+  List<MediaItem> _buildQueue(SeriesInfo info, Playlist playlist) {
+    final items = <MediaItem>[];
+    for (final season in ([...info.seasons]..sort())) {
+      final episodes = [...?info.episodes[season]]
+        ..sort((a, b) => a.episodeNum.compareTo(b.episodeNum));
+      for (final episode in episodes) {
+        items.add(_mediaItem(info.series, episode, playlist));
+      }
+    }
+    return [for (final item in items) _withSiblings(item, items)];
+  }
+
+  /// [item] with the queue attached: the queue cannot contain itself as it is
+  /// built, so each item is copied once the list is complete.
+  static MediaItem _withSiblings(MediaItem item, List<MediaItem> siblings) => MediaItem(
+        title: item.title,
+        url: item.url,
+        subtitle: item.subtitle,
+        image: item.image,
+        isLive: item.isLive,
+        streamId: item.streamId,
+        kind: item.kind,
+        parentId: item.parentId,
+        season: item.season,
+        episodeNum: item.episodeNum,
+        containerExtension: item.containerExtension,
+        siblings: siblings,
+      );
 
   /// Reads this series' favourite flag and its episodes' resume positions from
   /// the local store.
@@ -93,26 +158,20 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   Future<void> _play(Episode episode, Series series) async {
     final playlist = _playlist;
     if (playlist == null) return;
-    final url = getIt<PlaylistRepository>().sourceFor(playlist).episodeUrl(episode);
-    if (url.isEmpty) return;
+    final index = _queue.indexWhere(
+      (item) => item.season == episode.season && item.episodeNum == episode.episodeNum,
+    );
+    // The queue is built from this series' episodes, so only an episode the
+    // panel sent twice, or not at all, misses it; that one plays on its own.
+    final item = index >= 0
+        ? _queue[index]
+        : _mediaItem(series, episode, playlist);
+    if (item.url.isEmpty) return;
     final id = '${series.seriesId}:${episode.id}';
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
-          item: MediaItem(
-            title: series.name,
-            subtitle: episode.title.isEmpty
-                ? 'S${episode.season} · E${episode.episodeNum}'
-                : 'S${episode.season} · E${episode.episodeNum} · ${episode.title}',
-            image: episode.image.isNotEmpty ? episode.image : series.cover,
-            url: url,
-            streamId: int.tryParse(episode.id) ?? episode.episodeNum,
-            kind: 'episode',
-            parentId: series.seriesId,
-            season: episode.season,
-            episodeNum: episode.episodeNum,
-            containerExtension: episode.containerExtension,
-          ),
+          item: item,
           startAt: _progress[id]?.position ?? Duration.zero,
         ),
       ),

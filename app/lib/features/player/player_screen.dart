@@ -17,6 +17,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
+import '../../data/sources/playlist_source.dart';
 import 'player_stats.dart';
 
 /// Full-screen playback surface with a custom overlay.
@@ -40,6 +41,33 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   bool _overlayVisible = true;
   bool _fullscreen = false;
 
+  /// What is actually playing.
+  ///
+  /// Not [PlayerScreen.item]: an episode carries its series' other episodes in
+  /// `siblings`, and stepping to the next one re-opens the stream on the same
+  /// player rather than pushing another route — so the screen has to be able to
+  /// move past the item it was built with.
+  late MediaItem _item = widget.item;
+
+  /// The queue this item sits in: the series it belongs to, or the item alone.
+  List<MediaItem> get _queue => _item.siblings.isEmpty ? [_item] : _item.siblings;
+
+  int get _queueIndex => _queue.indexWhere((item) => item.url == _item.url);
+
+  bool get _hasPrevious => _queueIndex > 0;
+
+  bool get _hasNext {
+    final index = _queueIndex;
+    return index >= 0 && index < _queue.length - 1;
+  }
+
+  /// The next episode's title, for the end-of-playback prompt.
+  String? get _nextLabel {
+    if (!_hasNext) return null;
+    final next = _queue[_queueIndex + 1];
+    return next.subtitle ?? next.title;
+  }
+
   /// This screen's bloc, created on the first build and closed in [dispose]:
   /// `BlocProvider.value` hands ownership to the screen rather than keeping it.
   ///
@@ -60,15 +88,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   /// Whether the mpv diagnostics read-out is on screen.
   bool _showStats = false;
 
-  /// The last volume handed back to the settings, and which of the two remembered
-  /// volumes this stream's kind belongs to.
+  /// The last volume handed back to the settings.
   ///
-  /// A stream opens at its kind's volume, so without this the opening volume
+  /// A stream opens at the remembered volume, so without this the opening volume
   /// would be written back on every position tick; with it, only a change — the
   /// viewer moving the slider, or muting — is remembered.
   double? _volumeWritten;
-  VolumeScope get _volumeScope =>
-      widget.item.isLive ? VolumeScope.live : VolumeScope.video;
 
   @override
   void initState() {
@@ -109,7 +134,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _overlayVisible = false);
+      // A finished stream leaves the overlay up: it carries the replay and next
+      // episode buttons, and a last frame on its own says nothing.
+      if (mounted && _last?.completed != true) {
+        setState(() => _overlayVisible = false);
+      }
     });
   }
 
@@ -136,7 +165,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   Future<void> _writeProgress() async {
     final state = _last;
     if (state == null) return;
-    final item = widget.item;
+    final item = _item;
     if (state.duration.inSeconds < 30) return;
     final playlists = getIt<PlaylistRepository>();
     final playlist = playlists.active;
@@ -188,6 +217,63 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   Future<void> _flushProgress() {
     _persistProgress();
     return _progressWrites;
+  }
+
+  /// Opens the queue's [index] on this player — the next or previous episode.
+  ///
+  /// The item being left is saved before the new one opens: this screen is not
+  /// unmounted, so nothing else would write it, and watching three episodes in a
+  /// row has to leave three resume positions. The volume is left alone; see
+  /// `PlayerOpened.keepVolume`.
+  Future<void> _playItem(int index) async {
+    final queue = _queue;
+    if (index < 0 || index >= queue.length) return;
+    final item = queue[index];
+    if (item.url == _item.url) return;
+    await _flushProgress();
+    if (!mounted) return;
+    final startAt = await _resumePosition(item);
+    if (!mounted) return;
+    setState(() {
+      _item = item;
+      // Nothing may be written until the new item's own state arrives, or the
+      // previous episode's position would be filed under this one.
+      _last = null;
+      _savedPosition = Duration.zero;
+    });
+    _bloc?.add(PlayerOpened(item, startAt: startAt, keepVolume: true));
+    _showOverlay();
+  }
+
+  /// Where [item] was left off, if anywhere.
+  ///
+  /// Found by series, season and episode number rather than by the id the entry
+  /// was filed under, which is derived from the provider's episode id.
+  Future<Duration> _resumePosition(MediaItem item) async {
+    if (item.kind != 'episode') return Duration.zero;
+    final playlist = getIt<PlaylistRepository>().active;
+    if (playlist == null) return Duration.zero;
+    final progress =
+        await getIt<ContentRepository>().continueWatching(playlist, ContentKind.series);
+    for (final entry in progress) {
+      if (entry.parentId == item.parentId &&
+          entry.season == item.season &&
+          entry.episodeNum == item.episodeNum) {
+        return entry.position;
+      }
+    }
+    return Duration.zero;
+  }
+
+  void _previousEpisode() => _playItem(_queueIndex - 1);
+
+  void _nextEpisode() => _playItem(_queueIndex + 1);
+
+  /// Starts the item over from the beginning.
+  void _replay() {
+    _savedPosition = Duration.zero;
+    _bloc?.add(const PlayerReplayed());
+    _showOverlay();
   }
 
   Future<void> _toggleFullscreen() async {
@@ -260,7 +346,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
     final config = getIt<AppConfig>();
     final bloc = _bloc ??= PlayerBloc(
       settings.subtitleSize,
-      volume: widget.item.isLive ? settings.volume : settings.vodVolume,
+      volume: settings.volume,
       title: config.branding.windowTitle,
       hardwareDecoding: config.player.hardwareDecoding,
       liveTuning: config.player.liveTuning,
@@ -286,12 +372,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
               // one rather than back at the setting.
               if (_volumeWritten != state.volume) {
                 _volumeWritten = state.volume;
-                context
-                    .read<SettingsBloc>()
-                    .add(VolumeChanged(state.volume, scope: _volumeScope));
+                context.read<SettingsBloc>().add(VolumeChanged(state.volume));
               }
               if (state.completed) {
                 _persistProgress();
+                // The overlay is what carries the end-of-episode buttons, so it
+                // stays up at the end rather than fading like a stale control
+                // bar over a last frame.
+                if (!_overlayVisible) setState(() => _overlayVisible = true);
                 return;
               }
               // Written as playback goes, so that quitting the hard way — the
@@ -348,7 +436,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
                                 },
                               ),
                             ),
-                            if (state.buffering)
+                            // A stream that has run out of file reports itself as
+                            // buffering, which turned the spinner on for good at
+                            // the end of an episode.
+                            if (state.buffering && !state.completed)
                               const Center(
                                 child: SizedBox(
                                   width: 46,
@@ -399,6 +490,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
                                   statsVisible: _showStats,
                                   onToggleStats: () =>
                                       setState(() => _showStats = !_showStats),
+                                  onPrevious: _hasPrevious ? _previousEpisode : null,
+                                  onNext: _hasNext ? _nextEpisode : null,
+                                  nextLabel: _nextLabel,
+                                  onReplay: _replay,
                                 ),
                               ),
                             ),
@@ -465,6 +560,10 @@ class _Overlay extends StatelessWidget {
     required this.subtitleSize,
     required this.statsVisible,
     required this.onToggleStats,
+    required this.onPrevious,
+    required this.onNext,
+    required this.nextLabel,
+    required this.onReplay,
   });
 
   final PlayerState state;
@@ -474,6 +573,13 @@ class _Overlay extends StatelessWidget {
   final int subtitleSize;
   final bool statsVisible;
   final VoidCallback onToggleStats;
+
+  /// Null when there is no episode either side of this one — a film, or the
+  /// first or last of a series.
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final String? nextLabel;
+  final VoidCallback onReplay;
 
   @override
   Widget build(BuildContext context) {
@@ -549,15 +655,24 @@ class _Overlay extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: () => bloc.add(const PlayerControlsToggled()),
             child: Center(
-              child: AnimatedOpacity(
-                opacity: state.playing ? 0 : 1,
-                duration: const Duration(milliseconds: 150),
-                child: IconButton(
-                  iconSize: 74,
-                  onPressed: () => bloc.add(const PlayerPlayPause()),
-                  icon: const Icon(Icons.play_circle_fill, color: Colors.white70),
-                ),
-              ),
+              // The end of a stream used to leave a last frame, a play button
+              // that did nothing (libmpv has no file left to play), and — when
+              // mpv called itself buffering as it ran out — a spinner for ever.
+              child: state.completed
+                  ? _FinishedCard(
+                      nextLabel: nextLabel,
+                      onReplay: onReplay,
+                      onNext: onNext,
+                    )
+                  : AnimatedOpacity(
+                      opacity: state.playing ? 0 : 1,
+                      duration: const Duration(milliseconds: 150),
+                      child: IconButton(
+                        iconSize: 74,
+                        onPressed: () => bloc.add(const PlayerPlayPause()),
+                        icon: const Icon(Icons.play_circle_fill, color: Colors.white70),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -596,12 +711,32 @@ class _Overlay extends StatelessWidget {
                 ),
               Row(
                 children: [
+                  if (onPrevious != null)
+                    _ControlButton(
+                      icon: Icons.skip_previous,
+                      tooltip: 'Previous episode',
+                      onTap: onPrevious!,
+                      size: 26,
+                    ),
                   _ControlButton(
-                    icon: state.playing ? Icons.pause : Icons.play_arrow,
-                    tooltip: state.playing ? 'Pause' : 'Play',
-                    onTap: () => bloc.add(const PlayerPlayPause()),
+                    icon: state.completed
+                        ? Icons.replay
+                        : (state.playing ? Icons.pause : Icons.play_arrow),
+                    tooltip: state.completed
+                        ? 'Play again'
+                        : (state.playing ? 'Pause' : 'Play'),
+                    onTap: state.completed
+                        ? onReplay
+                        : () => bloc.add(const PlayerPlayPause()),
                     size: 30,
                   ),
+                  if (onNext != null)
+                    _ControlButton(
+                      icon: Icons.skip_next,
+                      tooltip: 'Next episode',
+                      onTap: onNext!,
+                      size: 26,
+                    ),
                   const SizedBox(width: 6),
                   if (state.isLive)
                     const Text('LIVE', style: TextStyle(color: AppColors.red, fontSize: 11, fontWeight: FontWeight.bold))
@@ -787,6 +922,85 @@ class _IconControl extends StatelessWidget {
       splashRadius: 16,
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// What the end of a stream shows.
+///
+/// Replaying at the end is not the same as pressing play: libmpv is sitting on
+/// its last frame with nothing left to play, so the button sends
+/// [PlayerReplayed], which seeks back to the start first.
+class _FinishedCard extends StatelessWidget {
+  const _FinishedCard({
+    required this.nextLabel,
+    required this.onReplay,
+    required this.onNext,
+  });
+
+  /// The episode after this one, as the player listed it.
+  final String? nextLabel;
+  final VoidCallback onReplay;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = onNext;
+    final label = nextLabel;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Finished',
+          style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 0.6),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _OverlayAction(icon: Icons.replay, label: 'Play again', onTap: onReplay),
+            if (next != null) ...[
+              const SizedBox(width: 10),
+              _OverlayAction(icon: Icons.skip_next, label: 'Next episode', onTap: next),
+            ],
+          ],
+        ),
+        if (label != null) ...[
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// A gold, labelled button for the end-of-stream card.
+class _OverlayAction extends StatelessWidget {
+  const _OverlayAction({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.gold,
+        backgroundColor: Colors.black.withValues(alpha: 0.55),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      ),
+    );
   }
 }
 

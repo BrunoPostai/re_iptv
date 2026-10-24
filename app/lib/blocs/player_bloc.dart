@@ -105,15 +105,31 @@ abstract class PlayerEvent extends Equatable {
 }
 
 class PlayerOpened extends PlayerEvent {
-  const PlayerOpened(this.item, {this.startAt = Duration.zero});
+  const PlayerOpened(this.item, {this.startAt = Duration.zero, this.keepVolume = false});
   final MediaItem item;
   final Duration startAt;
+
+  /// True when this bloc is switching between items on its own — the next
+  /// episode — rather than opening a stream for a screen.
+  ///
+  /// The volume is then left where the viewer put it: re-applying the opening
+  /// volume would both jump the sound and, since the player writes the volume it
+  /// sees back to the settings, forget the volume they had chosen.
+  final bool keepVolume;
   @override
-  List<Object?> get props => [item, startAt];
+  List<Object?> get props => [item, startAt, keepVolume];
 }
 
 class PlayerPlayPause extends PlayerEvent {
   const PlayerPlayPause();
+}
+
+/// Starts the item over.
+///
+/// At the end of a stream `play` alone does nothing: libmpv is sitting on its
+/// last frame with no file position left to play from.
+class PlayerReplayed extends PlayerEvent {
+  const PlayerReplayed();
 }
 
 class PlayerSeeked extends PlayerEvent {
@@ -187,6 +203,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     on<PlayerPlayPause>(_onPlayPause);
     on<PlayerSeeked>(_onSeeked);
     on<PlayerVolumeSet>(_onVolume);
+    on<PlayerReplayed>(_onReplayed);
     on<PlayerSubtitleSizeSet>(_onSubtitleSize);
     on<PlayerControlsToggled>(_onControlsToggled);
     on<PlayerSubtitleSelected>(_onSubtitleSelected);
@@ -197,7 +214,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     _subscriptions.addAll([
       player.stream.playing.listen((v) => add(_Emit(state.copyWith(playing: v)))),
       player.stream.buffering.listen((v) => add(_Emit(state.copyWith(buffering: v)))),
-      player.stream.completed.listen((v) => add(_Emit(state.copyWith(completed: v)))),
+      player.stream.completed.listen((v) => add(_Emit(state.copyWith(
+            completed: v,
+            // mpv reporting "buffering" as it runs out of file is what left the
+            // spinner turning for ever at the end of an episode.
+            buffering: v ? false : null,
+          )))),
       player.stream.position.listen((v) => add(_Emit(state.copyWith(position: v)))),
       player.stream.duration.listen((v) {
         add(_Emit(state.copyWith(duration: v)));
@@ -252,10 +274,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
       clearError: true,
       controlsVisible: true,
       completed: false,
-      volume: _initialVolume,
+      // Switching between items inside the player keeps the volume the viewer
+      // set; only a fresh screen arrives at the configured one.
+      volume: event.keepVolume ? state.volume : _initialVolume,
     ));
     // Open at the configured volume instead of libmpv's default of 100%.
-    await player.setVolume(_initialVolume);
+    if (!event.keepVolume) await player.setVolume(_initialVolume);
     // Stream options only apply to the connection made by open(), so they have
     // to be in place before it.
     if (event.item.isLive) {
@@ -312,6 +336,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
 
   Future<void> _onVolume(PlayerVolumeSet event, Emitter<PlayerState> emit) async {
     await player.setVolume(event.volume);
+  }
+
+  Future<void> _onReplayed(PlayerReplayed event, Emitter<PlayerState> emit) async {
+    emit(state.copyWith(completed: false, buffering: false));
+    await player.seek(Duration.zero);
+    await player.play();
   }
 
   Future<void> _onSubtitleSize(PlayerSubtitleSizeSet event, Emitter<PlayerState> emit) async {

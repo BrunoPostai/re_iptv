@@ -14,11 +14,9 @@ class SettingsState extends Equatable {
   final String streamFormat;
   final int subtitleSize;
 
-  /// Volume (0-100) live channels open at.
+  /// Volume (0-100) a stream opens at: the last one used, whatever it was
+  /// watched on.
   final double volume;
-
-  /// Volume (0-100) films and episodes open at, kept apart from [volume].
-  final double vodVolume;
   final String pin;
   final Set<String> hiddenCategories;
   final String sortType;
@@ -33,7 +31,6 @@ class SettingsState extends Equatable {
     this.streamFormat = 'default',
     this.subtitleSize = 20,
     this.volume = 20,
-    this.vodVolume = 20,
     this.pin = '',
     this.hiddenCategories = const {},
     this.sortType = 'default',
@@ -49,7 +46,6 @@ class SettingsState extends Equatable {
     String? streamFormat,
     int? subtitleSize,
     double? volume,
-    double? vodVolume,
     String? pin,
     Set<String>? hiddenCategories,
     String? sortType,
@@ -64,7 +60,6 @@ class SettingsState extends Equatable {
         streamFormat: streamFormat ?? this.streamFormat,
         subtitleSize: subtitleSize ?? this.subtitleSize,
         volume: volume ?? this.volume,
-        vodVolume: vodVolume ?? this.vodVolume,
         pin: pin ?? this.pin,
         hiddenCategories: hiddenCategories ?? this.hiddenCategories,
         sortType: sortType ?? this.sortType,
@@ -83,7 +78,6 @@ class SettingsState extends Equatable {
         streamFormat,
         subtitleSize,
         volume,
-        vodVolume,
         pin,
         hiddenCategories,
         sortType,
@@ -131,18 +125,17 @@ class SubtitleSizeChanged extends SettingsEvent {
   List<Object?> get props => [size];
 }
 
-/// Which remembered volume a change is for.
+/// The volume a stream opens at, and the volume the viewer last set while
+/// watching something.
 ///
-/// Live channels and films are kept apart, so muting a channel that was left
-/// running does not leave the next film silent.
-enum VolumeScope { live, video }
-
+/// One value rather than one per kind: setting 40% on a channel is a request for
+/// 40%, not for 40% of live television, and a film that ignored it is a bug in
+/// the viewer's eyes whichever way it is argued.
 class VolumeChanged extends SettingsEvent {
-  const VolumeChanged(this.volume, {this.scope = VolumeScope.live});
+  const VolumeChanged(this.volume);
   final double volume;
-  final VolumeScope scope;
   @override
-  List<Object?> get props => [volume, scope];
+  List<Object?> get props => [volume];
 }
 
 class PinChanged extends SettingsEvent {
@@ -207,8 +200,6 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       streamFormat: _storage.readSetting(StoreKeys.streamFormat, _config.player.streamFormat),
       subtitleSize: _storage.readSetting(StoreKeys.subtitleSize, _config.player.subtitleSize),
       volume: _storage.readSetting<double>(StoreKeys.volume, _config.player.defaultVolume),
-      vodVolume:
-          _storage.readSetting<double>(StoreKeys.vodVolume, _config.player.defaultVolume),
       pin: _storage.readSetting(StoreKeys.lockCode, ''),
       sortType: _storage.readSetting(StoreKeys.sortChannelType, 'default'),
       hiddenCategories: _storage.readStringList(StoreKeys.hideLiveCategories).toSet(),
@@ -240,9 +231,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
 
   Future<void> _onVolumeChanged(VolumeChanged event, Emitter<SettingsState> emit) async {
     final volume = event.volume.clamp(0, 100).toDouble();
-    final live = event.scope == VolumeScope.live;
-    emit(state.copyWith(volume: live ? volume : null, vodVolume: live ? null : volume));
-    await _storage.writeSetting(live ? StoreKeys.volume : StoreKeys.vodVolume, volume);
+    emit(state.copyWith(volume: volume));
+    await _storage.writeSetting(StoreKeys.volume, volume);
   }
 
   Future<void> _onPinChanged(PinChanged event, Emitter<SettingsState> emit) async {

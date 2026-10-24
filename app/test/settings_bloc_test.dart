@@ -7,9 +7,11 @@ import 'package:re_iptv/core/config/app_config.dart';
 import 'package:re_iptv/core/constants.dart';
 import 'package:re_iptv/data/storage/app_storage.dart';
 
-/// Live channels and films remember their volume apart from one another: a
-/// channel left running in the background should not decide how loud the next
-/// film opens, and muting that channel should not leave it silent either.
+/// One remembered volume, whatever it was set on.
+///
+/// An earlier version kept live and on-demand volumes apart; setting 40% on a
+/// channel and finding the next film at 20% reads as a bug no matter how it is
+/// explained, so there is one number.
 void main() {
   late Directory dir;
   late AppStorage storage;
@@ -37,32 +39,21 @@ void main() {
     return bloc.state;
   }
 
-  test('each kind is remembered under its own key', () async {
+  test('a volume is remembered under the one key', () async {
     bloc.add(const VolumeChanged(35));
-    await settle();
-    bloc.add(const VolumeChanged(70, scope: VolumeScope.video));
     await settle();
 
     expect(bloc.state.volume, 35);
-    expect(bloc.state.vodVolume, 70);
     expect(storage.readSetting<double>(StoreKeys.volume, 0), 35);
-    expect(storage.readSetting<double>(StoreKeys.vodVolume, 0), 70);
   });
 
-  test('changing one kind leaves the other alone', () async {
-    bloc.add(const VolumeChanged(35));
-    bloc.add(const VolumeChanged(70, scope: VolumeScope.video));
-    await settle();
-
-    bloc.add(const VolumeChanged(0, scope: VolumeScope.video));
+  test('the last volume wins, whatever it was set on', () async {
+    bloc.add(const VolumeChanged(40));
+    bloc.add(const VolumeChanged(65));
     final state = await settle();
-    expect(state.vodVolume, 0, reason: 'a muted film');
-    expect(state.volume, 35, reason: 'the channel volume is untouched');
 
-    bloc.add(const VolumeChanged(15));
-    final after = await settle();
-    expect(after.volume, 15);
-    expect(after.vodVolume, 0);
+    expect(state.volume, 65);
+    expect(storage.readSetting<double>(StoreKeys.volume, 0), 65);
   });
 
   test('an out-of-range volume is clamped before it is stored', () async {
@@ -70,16 +61,19 @@ void main() {
     await settle();
     expect(bloc.state.volume, 100);
     expect(storage.readSetting<double>(StoreKeys.volume, 0), 100);
+
+    bloc.add(const VolumeChanged(-20));
+    await settle();
+    expect(bloc.state.volume, 0);
+    expect(storage.readSetting<double>(StoreKeys.volume, 0), 0);
   });
 
   test('starting reads back what was left behind', () async {
     await storage.writeSetting(StoreKeys.volume, 12.0);
-    await storage.writeSetting(StoreKeys.vodVolume, 64.0);
 
     bloc.add(const SettingsStarted());
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     expect(bloc.state.volume, 12);
-    expect(bloc.state.vodVolume, 64);
   });
 }

@@ -105,8 +105,7 @@ class SettingsScreen extends StatelessWidget {
                           height: 128,
                           label: l10n.t('volume'),
                           icon: Icons.volume_up_outlined,
-                          value: 'live ${settings.volume.round()}% · '
-                              'films ${settings.vodVolume.round()}%',
+                          value: '${settings.volume.round()}%',
                           onTap: () => _showVolume(context),
                         ),
                         if (features.parentalControl)
@@ -435,8 +434,7 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) {
-          final live = settings.state.volume.clamp(0.0, 100.0).toDouble();
-          final video = settings.state.vodVolume.clamp(0.0, 100.0).toDouble();
+          final volume = settings.state.volume.clamp(0.0, 100.0).toDouble();
           return AlertDialog(
             title: const Text('Playback volume', style: TextStyle(fontSize: 16)),
             content: SizedBox(
@@ -446,25 +444,16 @@ class SettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'The volume a stream opens at. Live channels and films each '
-                    'keep their own: changing the volume while watching is what is '
-                    'remembered next time.',
+                    'The volume a stream opens at, live or on demand. Changing it '
+                    'while watching is what is remembered next time.',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 11.5),
                   ),
                   const SizedBox(height: 12),
                   _VolumeSlider(
-                    label: 'Live channels',
-                    volume: live,
+                    label: 'Every stream, live or on demand',
+                    volume: volume,
                     onChanged: (value) {
-                      settings.add(VolumeChanged(value, scope: VolumeScope.live));
-                      setState(() {});
-                    },
-                  ),
-                  _VolumeSlider(
-                    label: 'Films and series',
-                    volume: video,
-                    onChanged: (value) {
-                      settings.add(VolumeChanged(value, scope: VolumeScope.video));
+                      settings.add(VolumeChanged(value));
                       setState(() {});
                     },
                   ),

@@ -22,7 +22,10 @@ A row with no readable time now says "Time unavailable" rather than
 **To check:** open Live TV, pick a few channels, confirm titles are readable,
 times match the channel, and the **NOW** row is the one actually on air.
 
-## 2. Live preview with an "offline" placeholder — `[~]`
+**Checked:** partly — the panel lists and scrolls, which was the part that
+mattered. Titles and times were not gone through closely; not urgent.
+
+## 2. Live preview with an "offline" placeholder — `[x]`
 
 Selecting a channel now previews it inline in the details panel, replacing the
 static logo:
@@ -36,6 +39,8 @@ static logo:
 
 **To check:** select a working channel (preview plays), select a dead one (card
 appears), then press Watch (no double audio).
+
+**Checked:** confirmed.
 
 ## 3. Default volume 20%, not 100% — `[x]`
 
@@ -58,7 +63,7 @@ and the executable are unchanged (`re_iptv` / `re_iptv.exe`) — see
 [docs/PERSONALIZING.md](docs/PERSONALIZING.md#renaming-the-application-itself) to
 go further.
 
-## 6. Live playback stability — `[~]`
+## 6. Live playback stability — `[x]`
 
 Live TV felt heavy on large playlists. Four app-side causes of that were fixed:
 
@@ -72,6 +77,8 @@ Live TV felt heavy on large playlists. Four app-side causes of that were fixed:
 **To check:** browse a long channel list (few or no streams should open), leave
 one channel previewing, open **Watch** and come back (the list should come back
 without a pause), and confirm audio/subtitle/fullscreen controls still work.
+
+**Checked:** confirmed — live playback is fine on the real playlist.
 While a channel plays, press **I** or the gauge button to bring up the stats
 overlay described below.
 
@@ -136,7 +143,7 @@ mid-playback, `cache_on_disk: false` if the disks are busy, and `user_agent` set
 to the playlist's if the provider checks it. Apply one at a time and re-read the
 overlay after each — what fixes one provider can break another.
 
-## 7. VOD browsing came back the expensive way — `[~]`
+## 7. VOD browsing came back the expensive way — `[x]`
 
 The same mistake that made Live TV feel heavy was still present on the VOD side,
 plus two smaller ones found next to it:
@@ -154,9 +161,11 @@ play one and come back, and type in search on a large playlist. If a provider is
 normally slow to connect, the new timeouts are the thing to watch — they are
 generous on purpose.
 
+**Checked:** confirmed — the grids return without a pause.
+
 ---
 
-## 8. The catalogue no longer decodes on the UI isolate — `[~]`
+## 8. The catalogue no longer decodes on the UI isolate — `[x]`
 
 `AppStorage` ran `json.decode` and then built a model per entry for the whole
 catalogue on the isolate that draws the frame. On a large playlist that is tens
@@ -209,6 +218,8 @@ were checked.
 **To check:** type in the browse search box on a large playlist. The list should
 settle once you stop rather than narrowing letter by letter, and clearing the box
 should bring everything back.
+
+**Checked:** confirmed.
 
 ---
 
@@ -339,6 +350,9 @@ share one request, and an empty answer is not asked for again.
 there as soon as it is picked, and coming back to a channel should not cost a
 fresh request.
 
+**Checked:** partly — the guide scrolls and does not feel slow. Whether a return
+to a channel is answered from the cache was not measured; not urgent.
+
 **Still open:** the cache is in memory for the session, so a restart forgets it,
 and a guide fetched before midnight is served until that channel is picked again
 after it. Persisting it per day would carry listings across restarts, at the cost
@@ -375,11 +389,14 @@ should appear on its **series** poster, not on any film.
 
 **Still open:** live channels mark themselves watched on exit with nothing reading
 it; the original shows no check on a channel row, so that list stays unused. (The
-search results were the other half of this and are done — see §15.)
+search results were the other half of this and are done — see §15.) The
+episode → series mapping still wants one end-to-end look: the green check is
+confirmed on a watched film (§15), and an episode can now be watched to the end at
+all — see §17.
 
 ---
 
-## 13. Closing the window lost the last ten seconds — `[~]`
+## 13. Closing the window lost the last ten seconds — `[x]`
 
 Progress is now written as playback goes (§10), so closing the window mid-film
 leaves a resume that is at most one `progressSaveInterval` (10 s) behind where the
@@ -398,36 +415,37 @@ write that never finishes is an app that cannot be quit. The hold is dropped in
 close button (§16) or the title bar — start the app again and open the film: it
 should resume within a second or two of where it was left, not ten seconds earlier.
 
+**Checked:** confirmed — the film came back where it was stopped.
+
 ---
 
 ## 14. One volume for everything — `[~]`
 
-The volume was a single setting: whatever was last set while watching anything was
-what the next stream opened at, live channel or film alike. Watching a film at 60%
-meant a channel switched on in the background at 60%, and muting a channel left the
-next film silent.
+The volume was rebuilt as two remembered ones — live apart from films — and that
+was wrong: set 40% on a channel and the next film came back at 20%, which reads as
+a bug however it is argued (reported exactly that way). A volume is a volume.
 
-**Fixed:** two remembered volumes — one for live channels, one for films and
-episodes (`StoreKeys.volume`, `StoreKeys.vodVolume`). The player opens at the
-volume for the stream's kind, and writes back to that kind's entry only when the
-volume actually changes (`VolumeChanged` with a `VolumeScope`), so a stream's own
-opening volume is not rewritten on every position tick. `Settings → volume` shows
-both and its dialog has a slider for each.
+**Fixed:** one remembered volume (`StoreKeys.volume`). The player opens at it,
+whatever the stream, and writes back only when the volume actually changes
+(`VolumeChanged`), so a stream's own opening volume is not rewritten on every
+position tick. `Settings → volume` has a single slider for it, and the value shown
+on the tile is that one number.
 
-`app/test/settings_bloc_test.dart` pins it: each kind is stored under its own key,
-changing one leaves the other alone, an out-of-range value is clamped before it is
-stored, and both survive a restart.
+`app/test/settings_bloc_test.dart` pins it: the last volume wins whatever it was
+set on, an out-of-range value is clamped before it is stored, and it survives a
+restart.
 
-**To check:** play a film, set it to 65%, leave. Play a channel — it should open at
-the live volume (20% by default), not 65%. Change the channel to 40%, then watch
-another film: it should come back at 65%.
+**To check:** set 40% while watching a channel, leave, open a film — it should open
+at 40%. Set 65% while watching a film; the next channel should open at 65%.
 
-Note: the live **preview** still opens muted and unmutes to the live volume without
-remembering it — a preview is not watched, so it does not get to set the level.
+Note: the live **preview** still opens muted and unmutes to the remembered volume
+without writing it back — a preview is not watched, so it does not get to set the
+level. Switching to the next episode inside the player keeps the volume too
+(`PlayerOpened.keepVolume`), rather than snapping back to the opening one.
 
 ---
 
-## 15. Search results knew nothing about the viewer — `[~]`
+## 15. Search results knew nothing about the viewer — `[x]`
 
 §12 left the search results without any watch state: a film that had been watched
 to the end carried no green check there, nothing showed as a favourite, and no
@@ -443,9 +461,11 @@ came from, and the star can be toggled from the results themselves.
 green check and no resume bar. Play a film's first minute from the results, back
 out to search: the poster should now have a resume bar, without searching again.
 
+**Checked:** confirmed — the green check appears on a watched film.
+
 ---
 
-## 16. The player had no window buttons — `[~]`
+## 16. The player had no window buttons — `[x]`
 
 Reported while testing §13: *there is no close button in title bar*. The app draws
 its own title bar (`title_bar_style: custom`, so Windows draws none) and that bar
@@ -467,6 +487,53 @@ is a different thing.
 **To check:** while a film plays, move the mouse to the top of the screen — a `-`
 and an `✕` should appear at the right. `-` minimises, `✕` quits the app, and
 opening the film again resumes where it was.
+
+**Checked:** confirmed — this is how §13 was tested.
+
+---
+
+## 17. The end of an episode was a dead end — `[~]`
+
+Reported: *when the episode ends it keeps loading and nothing happens*. Three
+things were wrong at once, and only together did they explain it:
+
+1. **The spinner never stopped.** mpv reports itself as buffering as it runs out of
+   file, so the loading spinner at the centre of the overlay came on at the end of a
+   stream and stayed. The state now clears `buffering` when `completed` arrives, and
+   the spinner is drawn only while `buffering && !completed`, so a stray late
+   buffering report cannot bring it back either.
+2. **The play button did nothing.** At the end of a file libmpv has nothing left to
+   play from, so `playOrPause` was a no-op: the one button on screen did nothing.
+   The button becomes **Play again** and sends `PlayerReplayed`, which seeks back to
+   the start first — which is why pressing play at the end of anything did nothing
+   before, films included.
+3. **There was no next episode.** An episode's page is where the next one lived, so
+   watching three in a row meant backing out and picking each one by hand.
+
+**Fixed:** the series page builds the whole series in season and episode order —
+sorted, so `Next` is the episode after this one even if the panel lists `1, 10, 2` —
+and hands it to the player as the item's `siblings` (a field `MediaItem` has had
+since the beginning and nothing filled in). The player opens the next or previous
+episode **on the same player** rather than pushing another route: the item being
+left is saved first, so three episodes in a row leave three resume positions, and
+the new one opens at its own resume position (found by series, season and episode
+number, not by the id the entry was filed under). The volume is kept across the
+switch (`PlayerOpened.keepVolume`) instead of snapping back to the opening volume,
+which would also have written that lower volume back to the settings.
+
+The overlay carries `⏮` and `⏭` around the play button when there is an episode
+either side, and at the end of a stream stays up — rather than fading after four
+seconds like a stale control bar — showing **Finished**, **Play again** and, when
+there is one, **Next episode** with its `S·E` line underneath.
+
+**To check:** play an episode to the end. The spinner should stop, **Finished**
+should appear with **Play again** and **Next episode**. Pressing `⏭` mid-episode
+should move on at once, keeping the volume, resume each episode where it was left,
+and the series page behind should show a resume position for each one watched.
+
+**Still open:** nothing advances on its own at the end of an episode — the buttons
+are there, but the viewer presses them. Auto-advance (with a countdown) is the
+obvious next step if it is wanted.
 
 ---
 
