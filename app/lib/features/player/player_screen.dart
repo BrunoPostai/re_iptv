@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../blocs/player_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
+import '../../core/constants.dart';
 import '../../core/di/injector.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -47,6 +48,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// note in [build].
   PlayerBloc? _bloc;
 
+  /// Progress writes, queued one after the other: each write reads the list it is
+  /// about to replace, so two in flight at once could drop an entry. Queueing
+  /// also leaves the write made as this screen goes away ordered last, so the
+  /// newest position is the one that lands.
+  Future<void> _progressWrites = Future<void>.value();
+
+  /// The position the last write was queued for, so that writes are spaced
+  /// [progressSaveInterval] apart as playback goes.
+  Duration _savedPosition = Duration.zero;
+
   /// Whether the mpv diagnostics read-out is on screen.
   bool _showStats = false;
 
@@ -76,8 +87,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _scheduleHide();
   }
 
+  /// Records how far the item has been watched.
+  ///
+  /// Called as playback goes, not only when this screen is left: closing the
+  /// window destroys it without unmounting the player's route, so a save that
+  /// waited for [dispose] never happened at all and the item started from the
+  /// beginning next time.
+  void _persistProgress() {
+    _progressWrites = _progressWrites.then<void>(
+      (_) => _writeProgress(),
+      // A failed write must not cancel the writes queued behind it.
+      onError: (Object _) {},
+    );
+  }
+
   /// Stores resume position and marks the item as watched.
-  Future<void> _persistProgress() async {
+  Future<void> _writeProgress() async {
     final state = _last;
     if (state == null) return;
     final item = widget.item;
@@ -198,7 +223,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 a.position != b.position || a.completed != b.completed || a.error != b.error,
             listener: (context, state) {
               _last = state;
-              if (state.completed) _persistProgress();
+              if (state.completed) {
+                _persistProgress();
+                return;
+              }
+              // Written as playback goes, so that quitting the hard way — the
+              // window closing, which never unmounts this route — costs at most
+              // [progressSaveInterval] of the film rather than all of it.
+              if (!state.isLive &&
+                  (state.position - _savedPosition).abs() >= progressSaveInterval) {
+                _savedPosition = state.position;
+                _persistProgress();
+              }
             },
             child: MouseRegion(
               onHover: (_) => _showOverlay(),

@@ -10,8 +10,9 @@ import 'package:re_iptv/data/sources/playlist_source.dart';
 import 'package:re_iptv/data/storage/app_storage.dart';
 
 /// `ContentRepository` keeps the decoded catalogue for the playlist in use. These
-/// tests pin the two things that make that safe: a catalogue is only read once,
-/// and anything that writes to the store drops what was cached.
+/// tests pin the two things that make that safe — a catalogue is only read once,
+/// and anything that writes to the store drops what was cached — plus the resume
+/// progress the player writes and the detail screens read back.
 void main() {
   const playlist =
       Playlist(id: 'p1', name: 'One', url: 'http://playlist.invalid', type: PlaylistType.m3u);
@@ -34,6 +35,58 @@ void main() {
   tearDown(() async {
     await Hive.close();
     if (dir.existsSync()) await dir.delete(recursive: true);
+  });
+
+  WatchProgress film({Duration position = const Duration(minutes: 1)}) => WatchProgress(
+        id: '7',
+        kind: 'movie',
+        title: 'A Film',
+        position: position,
+        duration: const Duration(minutes: 100),
+        updatedAt: DateTime(2026, 1, 1),
+      );
+
+  WatchProgress episode() => WatchProgress(
+        id: '3:9',
+        kind: 'episode',
+        title: 'An Episode',
+        position: const Duration(minutes: 2),
+        duration: const Duration(minutes: 45),
+        updatedAt: DateTime(2026, 1, 2),
+        parentId: 3,
+        season: 1,
+        episodeNum: 9,
+      );
+
+  test('a film resumes where it was left', () async {
+    await content.saveProgress(playlist, film(position: const Duration(minutes: 12)));
+
+    final saved = await content.continueWatching(playlist, ContentKind.movie);
+
+    // The player files a film under this id and the detail screen looks it up
+    // under the same one: were the two ever to disagree, the film would start
+    // again from the beginning instead of resuming.
+    expect(saved.single.id, '7');
+    expect(saved.single.position, const Duration(minutes: 12));
+  });
+
+  test('an episode is not filed with the films', () async {
+    await content.saveProgress(playlist, film());
+    await content.saveProgress(playlist, episode());
+
+    expect((await content.continueWatching(playlist, ContentKind.movie)).map((p) => p.id), ['7']);
+    expect((await content.continueWatching(playlist, ContentKind.series)).map((p) => p.id), ['3:9']);
+  });
+
+  test('re-watching moves an entry to the front instead of adding another', () async {
+    await content.saveProgress(playlist, film(position: const Duration(minutes: 5)));
+    await content.saveProgress(playlist, episode());
+    await content.saveProgress(playlist, film(position: const Duration(minutes: 40)));
+
+    final films = await content.continueWatching(playlist, ContentKind.movie);
+
+    expect(films.length, 1);
+    expect(films.single.position, const Duration(minutes: 40));
   });
 
   test('a catalogue is read once and then served from memory', () async {

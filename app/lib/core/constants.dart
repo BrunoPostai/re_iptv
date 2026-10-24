@@ -80,3 +80,9 @@ class ContentKeys {
 /// per keystroke on a large playlist, so a query is only worth running once the
 /// user has stopped moving.
 const searchDebounce = Duration(milliseconds: 320);
+
+/// How much playback may be lost if the app is closed rather than backed out of.
+///
+/// Progress is written as it goes, so this is the most the resume position can
+/// be behind where the viewer actually stopped.
+const progressSaveInterval = Duration(seconds: 10);
