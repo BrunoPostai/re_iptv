@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
+import '../../core/constants.dart';
 import '../../core/di/injector.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
@@ -48,7 +49,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   void _onQuery(String value) {
     setState(() => _query = value);
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), _search);
+    _debounce = Timer(searchDebounce, _search);
   }
 
   Future<void> _search() async {

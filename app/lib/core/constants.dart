@@ -73,3 +73,10 @@ class ContentKeys {
   static const continueMovies = 'continue-watch-movies';
   static const continueSeries = 'continue-watch-episods';
 }
+
+/// How long a search box waits for typing to pause before it filters.
+///
+/// Filtering lower-cases the name of every item in the catalogue, which is felt
+/// per keystroke on a large playlist, so a query is only worth running once the
+/// user has stopped moving.
+const searchDebounce = Duration(milliseconds: 320);

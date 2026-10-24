@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/constants.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -192,7 +193,14 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
   List<Series> _allSeries = const [];
   List<String> _favoriteIds = const [];
 
+  /// Bumped by every query change, and by anything that supersedes a pending one,
+  /// so that only the last of them filters the catalogue.
+  int _queryGeneration = 0;
+
   Playlist? get _active => _playlists.active;
+
+  /// Drops a pending filter: the state it was queued for no longer applies.
+  void _cancelPendingFilter() => _queryGeneration++;
 
   Future<void> _load(ContentKind kind, Emitter<ContentState> emit) async {
     final playlist = _active;
@@ -313,6 +321,8 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
   }
 
   Future<void> _onStarted(ContentStarted event, Emitter<ContentState> emit) async {
+    // A query typed on the way in belongs to the kind being left behind.
+    _cancelPendingFilter();
     emit(state.copyWith(
       kind: event.kind,
       query: '',
@@ -323,12 +333,22 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
   }
 
   Future<void> _onSelected(ContentCategorySelected event, Emitter<ContentState> emit) async {
+    // Selecting a category clears the query, so a pending filter is already stale.
+    _cancelPendingFilter();
     emit(state.copyWith(selectedCategoryId: event.categoryId, query: ''));
     _emitFiltered(emit);
   }
 
   Future<void> _onQueryChanged(ContentQueryChanged event, Emitter<ContentState> emit) async {
     emit(state.copyWith(query: event.query));
+    // Filtering lower-cases the name of every item in the catalogue, so it waits
+    // for typing to pause rather than running per keystroke. The query itself is
+    // recorded straight away; only the filtering is deferred.
+    final generation = ++_queryGeneration;
+    await Future<void>.delayed(searchDebounce);
+    // Another keystroke arrived while this one waited, and that one filters
+    // instead; emitting here would be emitting for a query already replaced.
+    if (generation != _queryGeneration || isClosed) return;
     _emitFiltered(emit);
   }
 
