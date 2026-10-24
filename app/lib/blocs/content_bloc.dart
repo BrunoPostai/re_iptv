@@ -229,7 +229,8 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
         case ContentState.allCategoryId:
           return source.toList();
         case ContentState.favoritesCategoryId:
-          return source.where((e) => _favoriteIds.contains(id(e))).toList();
+          // `state.favorites` is a Set, so membership stays O(1) per item.
+          return source.where((e) => state.favorites.contains(id(e))).toList();
         case ContentState.continueCategoryId:
           return source.where((e) => state.progress.any((p) => p.id == id(e))).toList();
         default:
@@ -260,19 +261,23 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
     sortBy(movies, (m) => m.name, (m) => m.added, (m) => m.rating5Based);
     sortBy(series, (s) => s.name, (s) => s.lastModified, (s) => s.rating5Based);
 
+    // Counted in a single pass: rescanning the catalogue for every category row
+    // made each emit O(categories x items), which is felt on every keystroke.
+    final perCategory = <String, int>{};
+    final Iterable<String> categoryIds = switch (state.kind) {
+      ContentKind.live => _allChannels.map((c) => c.categoryId),
+      ContentKind.movie => _allMovies.map((m) => m.categoryId),
+      ContentKind.series => _allSeries.map((s) => s.categoryId),
+    };
+    for (final categoryId in categoryIds) {
+      perCategory[categoryId] = (perCategory[categoryId] ?? 0) + 1;
+    }
+
     int countFor(String categoryId) => switch (categoryId) {
-          ContentState.allCategoryId => switch (state.kind) {
-              ContentKind.live => _allChannels.length,
-              ContentKind.movie => _allMovies.length,
-              ContentKind.series => _allSeries.length,
-            },
+          ContentState.allCategoryId => perCategory.values.fold(0, (sum, count) => sum + count),
           ContentState.favoritesCategoryId => _favoriteIds.length,
           ContentState.continueCategoryId => state.progress.length,
-          _ => switch (state.kind) {
-              ContentKind.live => _allChannels.where((c) => c.categoryId == categoryId).length,
-              ContentKind.movie => _allMovies.where((m) => m.categoryId == categoryId).length,
-              ContentKind.series => _allSeries.where((s) => s.categoryId == categoryId).length,
-            },
+          _ => perCategory[categoryId] ?? 0,
         };
 
     final rows = <CategoryRow>[
