@@ -35,6 +35,12 @@ class PlayerStats {
     ('cache-buffering-state', 'Cache fill'),
     ('cache-speed', 'Cache rate'),
     ('avsync', 'A/V sync'),
+    // Why playback stopped moving: mpv calls itself idle both at the end of a
+    // file and while it waits for data, and `eof-reached` is what tells the two
+    // apart. `media_kit` reports idle as buffering, which is the spinner.
+    ('eof-reached', 'End of file'),
+    ('core-idle', 'Core idle'),
+    ('paused-for-cache', 'Waiting for data'),
   ];
 
   /// Reads [player]'s diagnostics.

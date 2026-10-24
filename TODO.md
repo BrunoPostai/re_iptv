@@ -419,7 +419,7 @@ should resume within a second or two of where it was left, not ten seconds earli
 
 ---
 
-## 14. One volume for everything — `[~]`
+## 14. One volume for everything — `[x]`
 
 The volume was rebuilt as two remembered ones — live apart from films — and that
 was wrong: set 40% on a channel and the next film came back at 20%, which reads as
@@ -497,11 +497,8 @@ opening the film again resumes where it was.
 Reported: *when the episode ends it keeps loading and nothing happens*. Three
 things were wrong at once, and only together did they explain it:
 
-1. **The spinner never stopped.** mpv reports itself as buffering as it runs out of
-   file, so the loading spinner at the centre of the overlay came on at the end of a
-   stream and stayed. The state now clears `buffering` when `completed` arrives, and
-   the spinner is drawn only while `buffering && !completed`, so a stray late
-   buffering report cannot bring it back either.
+1. **The spinner never stopped** — see below: the first try at this did not work,
+   because the signal it was watching for never arrives.
 2. **The play button did nothing.** At the end of a file libmpv has nothing left to
    play from, so `playOrPause` was a no-op: the one button on screen did nothing.
    The button becomes **Play again** and sends `PlayerReplayed`, which seeks back to
@@ -526,10 +523,35 @@ either side, and at the end of a stream stays up — rather than fading after fo
 seconds like a stale control bar — showing **Finished**, **Play again** and, when
 there is one, **Next episode** with its `S·E` line underneath.
 
-**To check:** play an episode to the end. The spinner should stop, **Finished**
-should appear with **Play again** and **Next episode**. Pressing `⏭` mid-episode
-should move on at once, keeping the volume, resume each episode where it was left,
-and the series page behind should show a resume position for each one watched.
+**It still span.** Reported back: *when I end an ep it still spins and nothing
+happens, I should just exit the player*. The first attempt was watching for
+`completed` — and `completed` is never set for these streams. `media_kit` sets it
+from mpv's `eof-reached`, and the panel never lets mpv reach it: the connection is
+held open at the end of a film, so mpv runs out of data, goes **idle** and waits.
+`media_kit` reports that idle state as `buffering`, which is precisely the spinner
+that would not stop, and with no `completed` there was no end card and nothing to
+press either. Every signal the first attempt used was one the stream never sent.
+
+**Fixed, second attempt:** `hasEndedPlayback()` — a stream within `_endSlack` (3 s)
+of its **reported** end that is not playing normally has ended, whether mpv says so
+or not. Waiting for data counts as ended; a pause does not; a live channel or a clip
+under 30 s never ends this way; and a stream that plays *past* its reported end is
+left alone until it stops, so a provider that under-reports a duration does not have
+its film cut off early. When it fires, playback is paused, so mpv stops asking the
+panel for the rest of a file that has ended instead of sitting on the connection.
+`app/test/player_end_test.dart` pins all seven cases, that rule being exactly the
+kind of thing that is easy to get subtly wrong.
+
+The stats overlay (`I`) grew three rows for this class of hang — **End of file**,
+**Core idle**, **Waiting for data** — because "why did playback stop moving" is the
+question it exists to answer, and `eof-reached` is what separates the two ways mpv
+goes idle.
+
+**Checked:** `⏮` and `⏭` are confirmed working. The end of an episode needs
+looking at again: the spinner should stop, **Finished** should appear, and there
+should be something to press. If it still hangs, `I` will show whether mpv reached
+the end of the file (`End of file: yes`) or is idle waiting for data
+(`Waiting for data: yes`) — that would say which of the two it is.
 
 **Still open:** nothing advances on its own at the end of an episode — the buttons
 are there, but the viewer presses them. Auto-advance (with a countdown) is the

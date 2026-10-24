@@ -213,14 +213,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
 
     _subscriptions.addAll([
       player.stream.playing.listen((v) => add(_Emit(state.copyWith(playing: v)))),
-      player.stream.buffering.listen((v) => add(_Emit(state.copyWith(buffering: v)))),
+      player.stream.buffering.listen((v) {
+        add(_Emit(state.copyWith(buffering: v)));
+        if (v) _checkEnded();
+      }),
       player.stream.completed.listen((v) => add(_Emit(state.copyWith(
             completed: v,
             // mpv reporting "buffering" as it runs out of file is what left the
             // spinner turning for ever at the end of an episode.
             buffering: v ? false : null,
           )))),
-      player.stream.position.listen((v) => add(_Emit(state.copyWith(position: v)))),
+      player.stream.position.listen((v) {
+        add(_Emit(state.copyWith(position: v)));
+        _checkEnded();
+      }),
       player.stream.duration.listen((v) {
         add(_Emit(state.copyWith(duration: v)));
         _checkResume(v);
@@ -315,6 +321,36 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     await player.seek(event.position);
   }
 
+  /// Notices the end of a stream that mpv never announced.
+  ///
+  /// mpv reports `eof-reached` at the end of a file and `media_kit` turns that
+  /// into `completed`. A provider that holds the connection open at the end of a
+  /// film never gives it that end: mpv runs out of data, calls itself idle and
+  /// waits, which `media_kit` reports as buffering — hence an episode that ended
+  /// on a turning spinner with nothing to press and nothing to do but leave.
+  ///
+  /// A stream sitting within [_endSlack] of its reported end without moving is
+  /// over, whether mpv said so or not. The reported end is the provider's own
+  /// duration, so a stream that stalls half way through is left alone: only the
+  /// last few seconds count as the end.
+  void _checkEnded() {
+    if (state.completed || state.error != null) return;
+    final live = player.state;
+    if (!hasEndedPlayback(
+      position: live.position,
+      duration: live.duration,
+      playing: live.playing,
+      buffering: live.buffering,
+      isLive: state.isLive,
+    )) {
+      return;
+    }
+    add(_Emit(state.copyWith(completed: true, buffering: false)));
+    // Nothing more is coming, so stop waiting on the connection rather than
+    // leaving mpv asking a provider for the rest of a file that has ended.
+    player.pause();
+  }
+
   /// Nudges playback to the resume position if opening the stream did not.
   ///
   /// `Media.start` is applied by mpv's own `on_load` hook, which is how libmpv
@@ -386,6 +422,39 @@ const _resumeSettle = Duration(seconds: 2);
 /// started at the beginning. mpv rounds a start back to the previous keyframe,
 /// and keyframes can be seconds apart on a broadcast stream.
 const _resumeSlack = Duration(seconds: 10);
+
+/// How close to the reported end a stalled stream has to be to count as finished.
+const _endSlack = Duration(seconds: 3);
+
+/// Only on-demand playback is judged this way: a live channel has no end, and
+/// anything shorter than this is a stream whose duration is guesswork.
+const _endMinDuration = Duration(seconds: 30);
+
+/// Whether the stream has run out of file, when mpv does not say so itself.
+/// See [_PlayerBloc._checkEnded] for why that happens.
+///
+/// [position], [duration], [playing] and [buffering] come from libmpv as it
+/// reports them; [buffering] is what `media_kit` calls mpv's idle state, and is
+/// the only signal that distinguishes "waiting for data" from "the viewer
+/// paused".
+bool hasEndedPlayback({
+  required Duration position,
+  required Duration duration,
+  required bool playing,
+  required bool buffering,
+  required bool isLive,
+}) {
+  // A live channel has no end, and a stream shorter than [_endMinDuration] has
+  // nothing worth resuming either way.
+  if (isLive || duration < _endMinDuration) return false;
+  if (position < duration - _endSlack) return false;
+  // Still playing normally: a provider whose reported duration is short would
+  // otherwise have its stream ended early.
+  if (playing && !buffering) return false;
+  // Stopped, but not for want of data and not at the end: the viewer paused.
+  if (!buffering && position < duration) return false;
+  return true;
+}
 
 class _Emit extends PlayerEvent {
   const _Emit(this.state);
