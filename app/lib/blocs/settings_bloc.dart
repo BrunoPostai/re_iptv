@@ -14,8 +14,11 @@ class SettingsState extends Equatable {
   final String streamFormat;
   final int subtitleSize;
 
-  /// Volume (0-100) applied when a stream is opened.
+  /// Volume (0-100) live channels open at.
   final double volume;
+
+  /// Volume (0-100) films and episodes open at, kept apart from [volume].
+  final double vodVolume;
   final String pin;
   final Set<String> hiddenCategories;
   final String sortType;
@@ -30,6 +33,7 @@ class SettingsState extends Equatable {
     this.streamFormat = 'default',
     this.subtitleSize = 20,
     this.volume = 20,
+    this.vodVolume = 20,
     this.pin = '',
     this.hiddenCategories = const {},
     this.sortType = 'default',
@@ -45,6 +49,7 @@ class SettingsState extends Equatable {
     String? streamFormat,
     int? subtitleSize,
     double? volume,
+    double? vodVolume,
     String? pin,
     Set<String>? hiddenCategories,
     String? sortType,
@@ -59,6 +64,7 @@ class SettingsState extends Equatable {
         streamFormat: streamFormat ?? this.streamFormat,
         subtitleSize: subtitleSize ?? this.subtitleSize,
         volume: volume ?? this.volume,
+        vodVolume: vodVolume ?? this.vodVolume,
         pin: pin ?? this.pin,
         hiddenCategories: hiddenCategories ?? this.hiddenCategories,
         sortType: sortType ?? this.sortType,
@@ -77,6 +83,7 @@ class SettingsState extends Equatable {
         streamFormat,
         subtitleSize,
         volume,
+        vodVolume,
         pin,
         hiddenCategories,
         sortType,
@@ -124,11 +131,18 @@ class SubtitleSizeChanged extends SettingsEvent {
   List<Object?> get props => [size];
 }
 
+/// Which remembered volume a change is for.
+///
+/// Live channels and films are kept apart, so muting a channel that was left
+/// running does not leave the next film silent.
+enum VolumeScope { live, video }
+
 class VolumeChanged extends SettingsEvent {
-  const VolumeChanged(this.volume);
+  const VolumeChanged(this.volume, {this.scope = VolumeScope.live});
   final double volume;
+  final VolumeScope scope;
   @override
-  List<Object?> get props => [volume];
+  List<Object?> get props => [volume, scope];
 }
 
 class PinChanged extends SettingsEvent {
@@ -193,6 +207,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       streamFormat: _storage.readSetting(StoreKeys.streamFormat, _config.player.streamFormat),
       subtitleSize: _storage.readSetting(StoreKeys.subtitleSize, _config.player.subtitleSize),
       volume: _storage.readSetting<double>(StoreKeys.volume, _config.player.defaultVolume),
+      vodVolume:
+          _storage.readSetting<double>(StoreKeys.vodVolume, _config.player.defaultVolume),
       pin: _storage.readSetting(StoreKeys.lockCode, ''),
       sortType: _storage.readSetting(StoreKeys.sortChannelType, 'default'),
       hiddenCategories: _storage.readStringList(StoreKeys.hideLiveCategories).toSet(),
@@ -224,8 +240,9 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
 
   Future<void> _onVolumeChanged(VolumeChanged event, Emitter<SettingsState> emit) async {
     final volume = event.volume.clamp(0, 100).toDouble();
-    emit(state.copyWith(volume: volume));
-    await _storage.writeSetting(StoreKeys.volume, volume);
+    final live = event.scope == VolumeScope.live;
+    emit(state.copyWith(volume: live ? volume : null, vodVolume: live ? null : volume));
+    await _storage.writeSetting(live ? StoreKeys.volume : StoreKeys.vodVolume, volume);
   }
 
   Future<void> _onPinChanged(PinChanged event, Emitter<SettingsState> emit) async {

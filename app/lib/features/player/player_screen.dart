@@ -34,7 +34,7 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   PlayerState? _last;
   Timer? _hideTimer;
   bool _overlayVisible = true;
@@ -60,18 +60,50 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// Whether the mpv diagnostics read-out is on screen.
   bool _showStats = false;
 
+  /// The last volume handed back to the settings, and which of the two remembered
+  /// volumes this stream's kind belongs to.
+  ///
+  /// A stream opens at its kind's volume, so without this the opening volume
+  /// would be written back on every position tick; with it, only a change — the
+  /// viewer moving the slider, or muting — is remembered.
+  double? _volumeWritten;
+  VolumeScope get _volumeScope =>
+      widget.item.isLive ? VolumeScope.live : VolumeScope.video;
+
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
+    // Closing the window destroys it without unmounting this route, so the
+    // write queued by [dispose] never happens and the last ten seconds of a film
+    // are lost. Holding the close here is what makes a resume land exactly.
+    windowManager.setPreventClose(true);
     _scheduleHide();
   }
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
+    windowManager.setPreventClose(false);
     _hideTimer?.cancel();
     _persistProgress();
     _bloc?.close();
     super.dispose();
+  }
+
+  /// The window's close came in: save the position, then let the window go.
+  @override
+  void onWindowClose() async {
+    try {
+      // Whatever happens, the window is handed back — a close held open by a
+      // write that never finishes is an app that cannot be quit.
+      await _flushProgress().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // The position is up to ten seconds stale in the worst case; that is not
+      // worth refusing to close over.
+    }
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
   }
 
   void _scheduleHide() {
@@ -228,7 +260,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final config = getIt<AppConfig>();
     final bloc = _bloc ??= PlayerBloc(
       settings.subtitleSize,
-      volume: settings.volume,
+      volume: widget.item.isLive ? settings.volume : settings.vodVolume,
       title: config.branding.windowTitle,
       hardwareDecoding: config.player.hardwareDecoding,
       liveTuning: config.player.liveTuning,
@@ -243,9 +275,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
           backgroundColor: Colors.black,
           body: BlocListener<PlayerBloc, PlayerState>(
             listenWhen: (a, b) =>
-                a.position != b.position || a.completed != b.completed || a.error != b.error,
+                a.position != b.position ||
+                a.completed != b.completed ||
+                a.error != b.error ||
+                a.volume != b.volume,
             listener: (context, state) {
               _last = state;
+              // The viewer changed the volume: remember it for this kind of
+              // stream, so the next film or channel opens where they left this
+              // one rather than back at the setting.
+              if (_volumeWritten != state.volume) {
+                _volumeWritten = state.volume;
+                context
+                    .read<SettingsBloc>()
+                    .add(VolumeChanged(state.volume, scope: _volumeScope));
+              }
               if (state.completed) {
                 _persistProgress();
                 return;

@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
+import '../../data/sources/playlist_source.dart';
 import '../../widgets/common.dart';
 import '../../widgets/media_grid.dart';
 import '../../widgets/search_field.dart';
@@ -37,13 +38,63 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   List<Movie> _movies = const [];
   List<Series> _series = const [];
 
+  /// Favourites, watched ids and resume positions per kind, so a result carries
+  /// the same marks as it does in the grids it came from.
+  Map<ContentKind, Set<String>> _favorites = const {};
+  Map<ContentKind, Set<String>> _watched = const {};
+  Map<ContentKind, List<WatchProgress>> _progress = const {};
+
   Playlist? get _playlist => getIt<PlaylistRepository>().active;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWatchState();
+  }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _tabs.dispose();
     super.dispose();
+  }
+
+  /// Reads the watch state for all three kinds.
+  ///
+  /// Local store only, so it can run again the moment a film's page or a channel
+  /// pops — which is what keeps a result from showing the state it had before it
+  /// was played, the way the grids did.
+  Future<void> _loadWatchState() async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final content = getIt<ContentRepository>();
+    final favorites = <ContentKind, Set<String>>{};
+    final watched = <ContentKind, Set<String>>{};
+    final progress = <ContentKind, List<WatchProgress>>{};
+    for (final kind in ContentKind.values) {
+      favorites[kind] = (await content.favorites(playlist, kind)).toSet();
+      watched[kind] = (await content.watched(playlist, kind)).toSet();
+      progress[kind] = kind == ContentKind.live
+          ? const <WatchProgress>[]
+          : await content.continueWatching(playlist, kind);
+    }
+    if (!mounted) return;
+    setState(() {
+      _favorites = favorites;
+      _watched = watched;
+      _progress = progress;
+    });
+  }
+
+  bool _isFavorite(ContentKind kind, int id) => _favorites[kind]?.contains('$id') ?? false;
+
+  bool _isWatched(ContentKind kind, int id) => _watched[kind]?.contains('$id') ?? false;
+
+  double? _resumeOf(ContentKind kind, bool Function(WatchProgress) test) {
+    for (final progress in _progress[kind] ?? const <WatchProgress>[]) {
+      if (test(progress)) return progress.percent;
+    }
+    return null;
   }
 
   void _onQuery(String value) {
@@ -100,6 +151,46 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
         ),
       ),
     );
+    if (!mounted) return;
+    await _loadWatchState();
+  }
+
+  Future<void> _openMovie(Movie movie) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
+    );
+    if (!mounted) return;
+    await _loadWatchState();
+  }
+
+  Future<void> _openSeries(Series series) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SeriesDetailScreen(series: series)),
+    );
+    if (!mounted) return;
+    await _loadWatchState();
+  }
+
+  /// Flips a favourite from the results themselves.
+  ///
+  /// The map is updated in place rather than re-read, so the star fills in at
+  /// once instead of after a round trip to the store.
+  Future<void> _toggleFavorite(ContentKind kind, int id) async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final added = await getIt<ContentRepository>().toggleFavorite(playlist, kind, id);
+    if (!mounted) return;
+    setState(() {
+      final favorites = Map<ContentKind, Set<String>>.of(_favorites);
+      final ids = Set<String>.of(favorites[kind] ?? const <String>{});
+      if (added) {
+        ids.add('$id');
+      } else {
+        ids.remove('$id');
+      }
+      favorites[kind] = ids;
+      _favorites = favorites;
+    });
   }
 
   @override
@@ -179,10 +270,13 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       itemCount: _channels.length,
       itemBuilder: (context, index) {
         final channel = _channels[index];
+        final favorite = _isFavorite(ContentKind.live, channel.streamId);
         return ChannelRow(
           name: channel.name,
           image: channel.icon,
           number: channel.num == 0 ? index + 1 : channel.num,
+          favorite: favorite,
+          onToggleFavorite: () => _toggleFavorite(ContentKind.live, channel.streamId),
           onTap: () => _playChannel(channel),
         );
       },
@@ -200,9 +294,11 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             title: movie.name,
             image: movie.icon,
             rating: movie.rating5Based,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
-            ),
+            favorite: _isFavorite(ContentKind.movie, movie.streamId),
+            onToggleFavorite: () => _toggleFavorite(ContentKind.movie, movie.streamId),
+            progress: _resumeOf(ContentKind.movie, (p) => p.id == '${movie.streamId}'),
+            watched: _isWatched(ContentKind.movie, movie.streamId),
+            onTap: () => _openMovie(movie),
           ),
       ],
     );
@@ -219,9 +315,11 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             title: series.name,
             image: series.cover,
             rating: series.rating5Based,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => SeriesDetailScreen(series: series)),
-            ),
+            favorite: _isFavorite(ContentKind.series, series.seriesId),
+            onToggleFavorite: () => _toggleFavorite(ContentKind.series, series.seriesId),
+            progress: _resumeOf(ContentKind.series, (p) => p.parentId == series.seriesId),
+            watched: _isWatched(ContentKind.series, series.seriesId),
+            onTap: () => _openSeries(series),
           ),
       ],
     );

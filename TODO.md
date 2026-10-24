@@ -374,21 +374,79 @@ which is what the grid's check is looked up by.
 and with it the resume bar should be gone. Do the same with an episode: the check
 should appear on its **series** poster, not on any film.
 
-**Still open:** the search results show no watch state at all (no check, favourite
-or resume bar), and they would go stale on the way back from a film, the way the
-detail page did — they want the same pop-time refresh before they get any of it.
-Live channels mark themselves watched on exit with nothing reading it; the
-original shows no check on a channel row, so that list stays unused.
+**Still open:** live channels mark themselves watched on exit with nothing reading
+it; the original shows no check on a channel row, so that list stays unused. (The
+search results were the other half of this and are done — see §15.)
+
+---
+
+## 13. Closing the window lost the last ten seconds — `[~]`
+
+Progress is now written as playback goes (§10), so closing the window mid-film
+leaves a resume that is at most one `progressSaveInterval` (10 s) behind where the
+viewer stopped. The close button closes the *window*, and closing a window
+destroys it without ever unmounting the player's route — so the write queued by
+`dispose` (the exact position, and a completion) never happened.
+
+**Fixed:** while the player is open it asks `window_manager` to hold the close
+(`setPreventClose(true)`), and the close request is answered in `onWindowClose`:
+flush the position, then `destroy()` the window itself. The write is given two
+seconds and the window is handed back whatever happens — a close held open by a
+write that never finishes is an app that cannot be quit. The hold is dropped in
+`dispose` too, so leaving the player normally leaves the window closable.
+
+**To check:** pause a film a minute in, close the window from the title bar, start
+the app again and open the film — it should resume within a second or two of where
+it was left, not ten seconds earlier.
+
+---
+
+## 14. One volume for everything — `[~]`
+
+The volume was a single setting: whatever was last set while watching anything was
+what the next stream opened at, live channel or film alike. Watching a film at 60%
+meant a channel switched on in the background at 60%, and muting a channel left the
+next film silent.
+
+**Fixed:** two remembered volumes — one for live channels, one for films and
+episodes (`StoreKeys.volume`, `StoreKeys.vodVolume`). The player opens at the
+volume for the stream's kind, and writes back to that kind's entry only when the
+volume actually changes (`VolumeChanged` with a `VolumeScope`), so a stream's own
+opening volume is not rewritten on every position tick. `Settings → volume` shows
+both and its dialog has a slider for each.
+
+`app/test/settings_bloc_test.dart` pins it: each kind is stored under its own key,
+changing one leaves the other alone, an out-of-range value is clamped before it is
+stored, and both survive a restart.
+
+**To check:** play a film, set it to 65%, leave. Play a channel — it should open at
+the live volume (20% by default), not 65%. Change the channel to 40%, then watch
+another film: it should come back at 65%.
+
+Note: the live **preview** still opens muted and unmutes to the live volume without
+remembering it — a preview is not watched, so it does not get to set the level.
+
+---
+
+## 15. Search results knew nothing about the viewer — `[~]`
+
+§12 left the search results without any watch state: a film that had been watched
+to the end carried no green check there, nothing showed as a favourite, and no
+poster had a resume bar — and they would have gone stale on the way back from a
+film even once they did, the same fault the detail page had in §10.
+
+**Fixed:** the search screen reads favourites, watched ids and resume positions for
+the three kinds (local store only — no provider calls) on open, and again each time
+a channel, film or series page pops. Results carry the same marks as the grids they
+came from, and the star can be toggled from the results themselves.
+
+**To check:** search for a film you have watched to the end — it should show the
+green check and no resume bar. Play a film's first minute from the results, back
+out to search: the poster should now have a resume bar, without searching again.
 
 ---
 
 ## Backlog
 
-- Persist the last used volume per stream kind instead of resetting to the
-  default on every open.
 - Preview: optional custom "offline" image via `branding`, if the built-in card
   is not wanted.
-- Save progress on window close as well as as it goes, so a resume lands exactly
-  where the viewer stopped rather than up to ten seconds earlier.
-- Search results: show the watched check, favourite and resume bar like the
-  grids, and refresh them on the way back from a film.

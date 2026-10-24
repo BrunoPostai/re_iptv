@@ -23,6 +23,11 @@ class StoreKeys {
 
   /// Volume new streams open at, as a percentage.
   static const volume = 'volume';
+
+  /// Volume films and episodes open at, remembered separately from live
+  /// channels: a film is worth hearing properly, a channel left running in the
+  /// background is not.
+  static const vodVolume = 'vod-volume';
   static const subtitleEnabled = 'subtitle-enabled';
   static const lockCode = 'lock-code';
   static const playlists = 'playlists';

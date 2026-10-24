@@ -105,7 +105,8 @@ class SettingsScreen extends StatelessWidget {
                           height: 128,
                           label: l10n.t('volume'),
                           icon: Icons.volume_up_outlined,
-                          value: '${settings.volume.round()}%',
+                          value: 'live ${settings.volume.round()}% · '
+                              'films ${settings.vodVolume.round()}%',
                           onTap: () => _showVolume(context),
                         ),
                         if (features.parentalControl)
@@ -434,7 +435,8 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) {
-          final volume = settings.state.volume.clamp(0.0, 100.0).toDouble();
+          final live = settings.state.volume.clamp(0.0, 100.0).toDouble();
+          final video = settings.state.vodVolume.clamp(0.0, 100.0).toDouble();
           return AlertDialog(
             title: const Text('Playback volume', style: TextStyle(fontSize: 16)),
             content: SizedBox(
@@ -444,36 +446,27 @@ class SettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'The volume new live channels and movies open at. You can still '
-                    'change it while watching.',
+                    'The volume a stream opens at. Live channels and films each '
+                    'keep their own: changing the volume while watching is what is '
+                    'remembered next time.',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 11.5),
                   ),
-                  Slider(
-                    value: volume,
-                    max: 100,
-                    divisions: 20,
-                    label: '${volume.round()}%',
-                    activeColor: AppColors.gold,
-                    inactiveColor: Colors.white24,
+                  const SizedBox(height: 12),
+                  _VolumeSlider(
+                    label: 'Live channels',
+                    volume: live,
                     onChanged: (value) {
-                      settings.add(VolumeChanged(value.roundToDouble()));
+                      settings.add(VolumeChanged(value, scope: VolumeScope.live));
                       setState(() {});
                     },
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        volume == 0 ? Icons.volume_off : Icons.volume_up_outlined,
-                        size: 18,
-                        color: AppColors.textMuted,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${volume.round()}%',
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                      ),
-                    ],
+                  _VolumeSlider(
+                    label: 'Films and series',
+                    volume: video,
+                    onChanged: (value) {
+                      settings.add(VolumeChanged(value, scope: VolumeScope.video));
+                      setState(() {});
+                    },
                   ),
                 ],
               ),
@@ -673,6 +666,57 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+/// One remembered volume, as a slider with its own read-out.
+class _VolumeSlider extends StatelessWidget {
+  const _VolumeSlider({
+    required this.label,
+    required this.volume,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double volume;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12.5)),
+        Row(
+          children: [
+            Expanded(
+              child: Slider(
+                value: volume,
+                max: 100,
+                divisions: 20,
+                label: '${volume.round()}%',
+                activeColor: AppColors.gold,
+                inactiveColor: Colors.white24,
+                onChanged: (value) => onChanged(value.roundToDouble()),
+              ),
+            ),
+            Icon(
+              volume == 0 ? Icons.volume_off : Icons.volume_up_outlined,
+              size: 18,
+              color: AppColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 44,
+              child: Text(
+                '${volume.round()}%',
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+      ],
     );
   }
 }
