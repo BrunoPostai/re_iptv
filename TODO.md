@@ -247,7 +247,7 @@ and the arrows seeking ten seconds either way.
 
 ---
 
-## 10. A film started again instead of resuming — `[~]`
+## 10. A film started again instead of resuming — `[x]`
 
 Four separate faults, and it took all four to keep a film from resuming:
 
@@ -492,7 +492,7 @@ opening the film again resumes where it was.
 
 ---
 
-## 17. The end of an episode was a dead end — `[~]`
+## 17. The end of an episode was a dead end — `[x]`
 
 Reported: *when the episode ends it keeps loading and nothing happens*. Three
 things were wrong at once, and only together did they explain it:
@@ -547,11 +547,10 @@ The stats overlay (`I`) grew three rows for this class of hang — **End of file
 question it exists to answer, and `eof-reached` is what separates the two ways mpv
 goes idle.
 
-**Checked:** `⏮` and `⏭` are confirmed working. The end of an episode needs
-looking at again: the spinner should stop, **Finished** should appear, and there
-should be something to press. If it still hangs, `I` will show whether mpv reached
-the end of the file (`End of file: yes`) or is idle waiting for data
-(`Waiting for data: yes`) — that would say which of the two it is.
+**Checked:** confirmed — the spinner stops, **Finished** appears, and both the end
+of an episode and `⏮`/`⏭` work. The first attempt was watching for a signal these
+streams never send, which is why it took a second pass and why the rule is pinned
+by a test rather than left to the next reader.
 
 **Still open:** nothing advances on its own at the end of an episode — the buttons
 are there, but the viewer presses them. Auto-advance (with a countdown) is the
