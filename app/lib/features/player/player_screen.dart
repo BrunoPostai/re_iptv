@@ -40,6 +40,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _overlayVisible = true;
   bool _fullscreen = false;
 
+  /// This screen's bloc, created on the first build and closed in [dispose]:
+  /// `BlocProvider.value` hands ownership to the screen rather than keeping it.
+  ///
+  /// It is held here because the key handler must be able to reach it — see the
+  /// note in [build].
+  PlayerBloc? _bloc;
+
   /// Whether the mpv diagnostics read-out is on screen.
   bool _showStats = false;
 
@@ -53,6 +60,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _hideTimer?.cancel();
     _persistProgress();
+    _bloc?.close();
     super.dispose();
   }
 
@@ -110,7 +118,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final bloc = context.read<PlayerBloc>();
+    final bloc = _bloc;
+    if (bloc == null) return KeyEventResult.ignored;
     switch (_shortcutKey(event)) {
       case LogicalKeyboardKey.space:
         bloc.add(const PlayerPlayPause());
@@ -164,17 +173,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     final settings = context.read<SettingsBloc>().state;
 
-    return BlocProvider<PlayerBloc>(
-      create: (_) {
-        final config = getIt<AppConfig>();
-        return PlayerBloc(
-          settings.subtitleSize,
-          volume: settings.volume,
-          title: config.branding.windowTitle,
-          hardwareDecoding: config.player.hardwareDecoding,
-          liveTuning: config.player.liveTuning,
-        )..add(PlayerOpened(widget.item, startAt: widget.startAt));
-      },
+    // Created here rather than inside `BlocProvider.create` so that the key
+    // handler can reach it. This screen builds the provider, so `State.context`
+    // sits *above* it: reading the bloc from there throws for every key press,
+    // which looks exactly like the keyboard doing nothing at all.
+    final config = getIt<AppConfig>();
+    final bloc = _bloc ??= PlayerBloc(
+      settings.subtitleSize,
+      volume: settings.volume,
+      title: config.branding.windowTitle,
+      hardwareDecoding: config.player.hardwareDecoding,
+      liveTuning: config.player.liveTuning,
+    )..add(PlayerOpened(widget.item, startAt: widget.startAt));
+
+    return BlocProvider<PlayerBloc>.value(
+      value: bloc,
       child: Focus(
         autofocus: true,
         onKeyEvent: _onKey,
