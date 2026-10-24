@@ -238,32 +238,49 @@ and the arrows seeking ten seconds either way.
 
 ## 10. A film started again instead of resuming — `[~]`
 
-Progress was written only when the player screen was disposed or the film finished.
-The app's close button closes the window, and closing a window destroys it without
-ever unmounting the player's route — so quitting mid-film saved nothing at all, and
-the film began at zero next time. Backing out with the player's own button did
-save, but as a write nothing waited for, which a quick quit could outrun.
+Two separate faults, and only the second one explains "back out and play it again":
 
-Progress is now written as playback goes: every `progressSaveInterval` (10 s) of
-playback, after a seek, and on completion. Each write is queued behind the previous
-one, because a write reads the list it is about to replace — two at once could drop
-an entry — and queueing also keeps the write made while leaving ordered last. Live
-streams and anything under 30 s are left alone, as before.
+1. **Nothing was written.** Progress was saved only when the player screen was
+   disposed or the film finished. The app's close button closes the window, and
+   closing a window destroys it without ever unmounting the player's route — so
+   quitting mid-film saved nothing at all. Backing out with the player's own
+   button did save, as a write nothing waited for.
+2. **The saved position was never applied.** The player opened the stream and then
+   immediately called `player.seek(startAt)`. `open` returns as soon as libmpv has
+   been handed the file; for a network stream the file is still being opened for
+   seconds after that, and mpv drops a seek that arrives before it has one — this
+   is `media_kit` #1215, "the video always ignores the `seek()` command and starts
+   from `Duration.zero`". So every attempt at resuming was thrown away, which is
+   why the fix for (1) on its own changed nothing.
+
+**Fixed:** progress is written as playback goes — every `progressSaveInterval`
+(10 s), after a seek, and on completion. Each write is queued behind the previous
+one, because a write reads the list it is about to replace and two at once could
+drop an entry. The resume position now goes to libmpv inside the `Media` handed to
+`open`, which mpv applies in its `on_load` hook, before it starts decoding — the
+way libmpv is meant to be told. Since that does not stick for every stream,
+`PlayerBloc` also arms a one-shot check on the first duration the demuxer reports:
+a stream still sitting near its beginning two seconds later is seeked instead. It
+is looked at once, and never after the viewer seeks themselves. Live streams and
+anything under 30 s are left alone, as before.
+
+A film watched to the end now drops its resume entry, so playing it again starts
+the film over rather than dropping the viewer on its last minute.
 
 `app/test/content_repository_test.dart` pins the contract resume depends on: the id
 the player files a film under is the one the detail screen looks it up by, an
-episode lands in the series list rather than with the films, and re-watching moves
-an entry to the front instead of adding a second one.
+episode lands in the series list rather than with the films, re-watching moves an
+entry to the front instead of adding a second one, and clearing one entry leaves
+the others alone.
 
-**To check:** play a film for a minute, close the app with its close button, reopen
-and press play — it should resume within ten seconds of where it stopped. Same for
-an episode.
+**To check:** play a film for a minute or two, back out and play it again — it
+should carry on where it stopped. Watch one through to the end and play it again —
+it should start over.
 
-**Still open:** the last few seconds before closing are lost. Catching the close
-itself (`setPreventClose` plus `onWindowClose`, saving and then destroying) would
-make it exact, at the cost of the window not closing at all if that handler ever
-fails to let it go. The watched lists `markWatched` writes to are read by nothing,
-so a finished film also stays in Continue Watching at ~95%; both are backlog below.
+**Still open:** the last few seconds before closing the window are lost, because a
+write only lands every ten seconds. Catching the close itself (`setPreventClose`
+plus `onWindowClose`, saving and then destroying) would make it exact, at the cost
+of the window refusing to close if that handler ever fails to let it go.
 
 ---
 
@@ -277,7 +294,6 @@ so a finished film also stays in Continue Watching at ~95%; both are backlog bel
   is not wanted.
 - Save progress on window close as well as as it goes, so a resume lands exactly
   where the viewer stopped rather than up to ten seconds earlier.
-- The watched lists (`markWatched`) have no reader: nothing hides a finished film,
-  so completing one leaves it in Continue Watching near the end, and an episode
-  marks a *film* watched under its own stream id. Both want deciding before the
-  lists are used for anything.
+- The watched lists (`markWatched`) have no reader, and an episode marks a *film*
+  watched under its own stream id rather than marking its series. Both want
+  deciding before anything reads those lists.
