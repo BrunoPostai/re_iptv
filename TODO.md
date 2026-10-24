@@ -305,10 +305,9 @@ stopped, and the **Continue watching** bar should be on that page the moment it
 appears. Same for an episode. Watch one through to the end and play it again — it
 should start over.
 
-**Still open:** the last few seconds before closing the window are lost, because a
-write only lands every ten seconds. Catching the close itself (`setPreventClose`
-plus `onWindowClose`, saving and then destroying) would make it exact, at the cost
-of the window refusing to close if that handler ever fails to let it go.
+**Still open:** nothing — the exact-on-close save this note used to ask for is now
+implemented (see §13). A write still only lands every ten seconds *while* playing;
+the close itself is what catches the last one.
 
 ---
 
