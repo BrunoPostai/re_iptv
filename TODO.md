@@ -159,8 +159,37 @@ generous on purpose.
 
 ---
 
+## 8. The catalogue no longer decodes on the UI isolate — `[~]`
+
+`AppStorage` ran `json.decode` and then built a model per entry for the whole
+catalogue on the isolate that draws the frame. On a large playlist that is tens
+of thousands of strings and objects blocking the UI, which is what made opening
+the app, switching playlists and moving between Live, Films and Series stall
+before anything appeared.
+
+The four catalogue reads — `channels`, `movies`, `series`, `categories` — now go
+through `compute`, so the parsing and the model building happen in a short-lived
+background isolate. A corrupt or empty store still degrades to an empty list, and
+`app/test/app_storage_test.dart` round-trips all four shapes through a real box to
+prove the models survive being copied across the boundary.
+
+The finished list is still copied back to the UI isolate, so this is not free on
+a very large catalogue — the parsing and the map lookups are simply no longer
+spent there.
+
+**Deliberately not moved:** `json.encode` when saving after a sync. Getting the
+models *to* an isolate costs a full copy of the catalogue, so encoding there
+would trade one pass over the data for another; the save also already sits behind
+a progress spinner. The real answer to both is to stop re-reading the catalogue at
+all — see the Backlog.
+
+---
+
 ## Backlog
 
+- Keep the decoded catalogue in memory for the active playlist instead of reading
+  it back out of its box on every reload, so moving between Live, Films and Series
+  costs nothing. Needs invalidating on sync and on playlist change.
 - Persist the last used volume per stream kind instead of resetting to the
   default on every open.
 - Programme guide: fetch the full day in the background and cache it per channel,
