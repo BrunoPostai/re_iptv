@@ -347,6 +347,41 @@ of a few hundred channels' worth of JSON in the content box.
 
 ---
 
+## 12. The watched marker never showed — `[~]`
+
+The original client puts a green **watched check** on the poster of a film or
+series that has been watched through to the end (`docs/analysis/05-ui-screens.md`,
+Movies grid), and `PosterCard` has had the parameter for it from the start — but
+no screen ever passed `watched:`, so the check could not appear on anything. The
+lists behind it were written and never read.
+
+Worse, what was written was wrong: the player marked **films** for both kinds, so
+an episode recorded *its own* stream id in `watched-movies` — a film that was
+never played would have shown the check, while its series showed nothing.
+
+**Fixed:** the player files a watched item where it belongs
+(`ContentRepository.watchedEntry`): a film under its own id, an episode under its
+**series'** id, a channel under its own. The bloc reads the watched list for the
+kind in view alongside favourites and resume positions — on load and on
+`ContentWatchStateReloaded`, which the detail screens already dispatch as the
+player pops — and the Movies and Series grids pass it to their poster cards.
+
+`app/test/content_repository_test.dart` pins the mapping and the read: watching an
+episode leaves the series list holding the series id and the film list untouched,
+which is what the grid's check is looked up by.
+
+**To check:** watch a film to the end — its poster should gain the green check,
+and with it the resume bar should be gone. Do the same with an episode: the check
+should appear on its **series** poster, not on any film.
+
+**Still open:** the search results show no watch state at all (no check, favourite
+or resume bar), and they would go stale on the way back from a film, the way the
+detail page did — they want the same pop-time refresh before they get any of it.
+Live channels mark themselves watched on exit with nothing reading it; the
+original shows no check on a channel row, so that list stays unused.
+
+---
+
 ## Backlog
 
 - Persist the last used volume per stream kind instead of resetting to the
@@ -355,6 +390,5 @@ of a few hundred channels' worth of JSON in the content box.
   is not wanted.
 - Save progress on window close as well as as it goes, so a resume lands exactly
   where the viewer stopped rather than up to ten seconds earlier.
-- The watched lists (`markWatched`) have no reader, and an episode marks a *film*
-  watched under its own stream id rather than marking its series. Both want
-  deciding before anything reads those lists.
+- Search results: show the watched check, favourite and resume bar like the
+  grids, and refresh them on the way back from a film.

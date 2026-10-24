@@ -39,6 +39,10 @@ class ContentState extends Equatable {
   final String sortType;
   final Set<String> favorites;
 
+  /// Ids of the items in this kind that have been watched to the end, which is
+  /// what the check on a poster card is drawn from.
+  final Set<String> watched;
+
   const ContentState({
     required this.kind,
     this.loading = false,
@@ -52,6 +56,7 @@ class ContentState extends Equatable {
     this.query = '',
     this.sortType = 'default',
     this.favorites = const {},
+    this.watched = const {},
   });
 
   static const continueCategoryId = '_continue';
@@ -75,6 +80,7 @@ class ContentState extends Equatable {
     String? query,
     String? sortType,
     Set<String>? favorites,
+    Set<String>? watched,
   }) =>
       ContentState(
         kind: kind ?? this.kind,
@@ -89,6 +95,7 @@ class ContentState extends Equatable {
         query: query ?? this.query,
         sortType: sortType ?? this.sortType,
         favorites: favorites ?? this.favorites,
+        watched: watched ?? this.watched,
       );
 
   @override
@@ -105,6 +112,7 @@ class ContentState extends Equatable {
         query,
         sortType,
         favorites,
+        watched,
       ];
 }
 
@@ -215,10 +223,15 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
       _allMovies = kind == ContentKind.movie ? await _content.movies(playlist) : const [];
       _allSeries = kind == ContentKind.series ? await _content.series(playlist) : const [];
       _favoriteIds = await _content.favorites(playlist, kind);
+      final watched = await _content.watched(playlist, kind);
       final progress = kind == ContentKind.live
           ? const <WatchProgress>[]
           : await _content.continueWatching(playlist, kind);
-      emit(state.copyWith(progress: progress, favorites: _favoriteIds.toSet()));
+      emit(state.copyWith(
+        progress: progress,
+        favorites: _favoriteIds.toSet(),
+        watched: watched.toSet(),
+      ));
       _emitFiltered(emit, loading: false);
     } catch (error) {
       emit(state.copyWith(loading: false, error: error.toString()));
@@ -373,17 +386,22 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
     await _load(state.kind, emit);
   }
 
-  /// Picks up favourites/continue-watching changes without touching the
+  /// Picks up favourites/watched/continue-watching changes without touching the
   /// catalogue loaded in memory.
   Future<void> _onWatchStateReloaded(
       ContentWatchStateReloaded event, Emitter<ContentState> emit) async {
     final playlist = _active;
     if (playlist == null) return;
     _favoriteIds = await _content.favorites(playlist, state.kind);
+    final watched = await _content.watched(playlist, state.kind);
     final progress = state.kind == ContentKind.live
         ? const <WatchProgress>[]
         : await _content.continueWatching(playlist, state.kind);
-    emit(state.copyWith(favorites: _favoriteIds.toSet(), progress: progress));
+    emit(state.copyWith(
+      favorites: _favoriteIds.toSet(),
+      watched: watched.toSet(),
+      progress: progress,
+    ));
     _emitFiltered(emit);
   }
 

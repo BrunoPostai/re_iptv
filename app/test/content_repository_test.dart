@@ -90,6 +90,22 @@ void main() {
     expect(films.single.position, const Duration(minutes: 40));
   });
 
+  test('an episode marks its series watched, not a film of its own', () {
+    expect(ContentRepository.watchedEntry('episode', 9, 3), (ContentKind.series, 3));
+    expect(ContentRepository.watchedEntry('movie', 7, 7), (ContentKind.movie, 7));
+    expect(ContentRepository.watchedEntry('live', 5, 5), (ContentKind.live, 5));
+  });
+
+  test('the watched list the marker reads is the one the player writes', () async {
+    final (kind, id) = ContentRepository.watchedEntry('episode', 9, 3);
+    await content.markWatched(playlist, kind, id);
+
+    // The series grid draws its watched check from this list, under the series
+    // id: were the two to disagree, watching an episode would light up a film.
+    expect(await content.watched(playlist, ContentKind.series), ['3']);
+    expect(await content.watched(playlist, ContentKind.movie), isEmpty);
+  });
+
   test('clearing one entry leaves the rest of the list alone', () async {
     await content.saveProgress(playlist, film(position: const Duration(minutes: 40)));
     await content.saveProgress(playlist, episode());

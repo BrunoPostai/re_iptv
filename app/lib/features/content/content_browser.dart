@@ -165,6 +165,7 @@ class _BrowserBody extends StatelessWidget {
               onToggleFavorite: () =>
                   context.read<ContentBloc>().add(ContentFavoriteToggled(movie.streamId)),
               progress: _progressOf(state, (p) => p.id == '${movie.streamId}'),
+              watched: state.watched.contains('${movie.streamId}'),
               onTap: () => _openMovie(context, movie),
             ),
         ],
@@ -186,6 +187,7 @@ class _BrowserBody extends StatelessWidget {
             onToggleFavorite: () =>
                 context.read<ContentBloc>().add(ContentFavoriteToggled(series.seriesId)),
             progress: _progressOf(state, (p) => p.parentId == series.seriesId),
+            watched: state.watched.contains('${series.seriesId}'),
             onTap: () => _openSeries(context, series),
           ),
       ],

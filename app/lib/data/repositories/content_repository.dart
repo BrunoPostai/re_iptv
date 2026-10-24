@@ -232,6 +232,18 @@ class ContentRepository {
     return added;
   }
 
+  /// Which list a watched item belongs in, and under which id.
+  ///
+  /// An episode is watched as part of its series, so it marks the series under
+  /// the series id — not a film of its own under the episode's id, which lit a
+  /// watched check on a poster that was never played.
+  static (ContentKind kind, int id) watchedEntry(String kind, int streamId, int parentId) =>
+      switch (kind) {
+        'episode' => (ContentKind.series, parentId),
+        'live' => (ContentKind.live, streamId),
+        _ => (ContentKind.movie, streamId),
+      };
+
   Future<List<String>> watched(Playlist playlist, ContentKind kind) async =>
       _storage.idList(await _box(playlist), watchedKey(kind));
 

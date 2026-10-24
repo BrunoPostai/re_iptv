@@ -17,7 +17,6 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
-import '../../data/sources/playlist_source.dart';
 import 'player_stats.dart';
 
 /// Full-screen playback surface with a custom overlay.
@@ -134,11 +133,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       await content.saveProgress(playlist, progress);
     }
     if (state.completed || state.progress > 0.92) {
-      await content.markWatched(
-        playlist,
-        item.kind == 'live' ? ContentKind.live : ContentKind.movie,
-        item.streamId,
-      );
+      // An episode counts as its series being watched, not as a film of its own.
+      final (kind, id) =
+          ContentRepository.watchedEntry(item.kind, item.streamId, item.parentId);
+      await content.markWatched(playlist, kind, id);
     }
   }
 
