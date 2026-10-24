@@ -131,18 +131,31 @@ Still open:
   diagnostic, but it should move to the language files if it is kept.
 - For **movies/series** the position ticks still rebuild the overlay, because the
   scrubber needs them; scope that rebuild to the slider alone.
-- `_emitFiltered` rescans the whole list once per category row, making filtering
-  and search `O(categories × items)`; the counts can be computed in one pass.
 - The catalogue is `json.decode`d / `json.encode`d on the UI isolate in
   `AppStorage`; a large playlist belongs on an isolate via `compute`.
-- `Dio` is used without timeouts, so a stalling provider request — including the
-  guide's two-endpoint fallback — can hang.
 
 What to try if the numbers point at the provider, now that they no longer need a
 rebuild: in `player.live_tuning`, `reconnect: true` for streams that drop
 mid-playback, `cache_on_disk: false` if the disks are busy, and `user_agent` set
 to the playlist's if the provider checks it. Apply one at a time and re-read the
 overlay after each — what fixes one provider can break another.
+
+## 7. VOD browsing came back the expensive way — `[~]`
+
+The same mistake that made Live TV feel heavy was still present on the VOD side,
+plus two smaller ones found next to it:
+
+| Cause | Fix |
+|---|---|
+| Backing out of a movie/series detail screen, and returning from the player on those screens, re-read and re-decoded the whole catalogue for what is only a watch-state change | all four sites now use `ContentWatchStateReloaded`; `ContentReloaded` had no callers left and is gone |
+| Category counts rescanned the entire catalogue once per category row, making every filter, sort and *keystroke* in search `O(categories × items)` | counted in one pass |
+| The favourites row tested membership against a `List`, so it was `O(items × favourites)` | tests against `state.favorites`, which is already a `Set` |
+| `Dio` was created without timeouts, so a provider that stops answering hangs the caller — and the guide's two-endpoint fallback never reaches its second endpoint | one shared client in `core/utils/http.dart` with a 15 s connect and 30 s receive timeout |
+
+**To check:** open a movie, back out (the grid should return without a pause),
+play one and come back, and type in search on a large playlist. If a provider is
+normally slow to connect, the new timeouts are the thing to watch — they are
+generous on purpose.
 
 ---
 
