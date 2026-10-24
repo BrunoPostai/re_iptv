@@ -131,7 +131,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
         setState(() => _showStats = !_showStats);
         break;
       case LogicalKeyboardKey.escape:
-        Navigator.of(context).maybePop();
+        // Back out of the enlarged player before closing it: Esc leaves
+        // fullscreen first, and only closes the player from there.
+        if (_fullscreen) {
+          _toggleFullscreen();
+        } else {
+          Navigator.of(context).maybePop();
+        }
         break;
       default:
         return KeyEventResult.ignored;
