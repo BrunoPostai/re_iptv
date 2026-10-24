@@ -316,8 +316,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
 /// continuously for the whole time a channel is playing.
 bool _overlayNeedsRebuild(PlayerState previous, PlayerState current) {
   if (previous == current) return false;
-  if (!current.isLive) return true;
+  // libmpv reports the position several times a second. Only the scrubber and the
+  // elapsed-time label draw it, and those read the state through
+  // [_PositionBuilder] below, so a tick no longer repaints the whole overlay.
   return previous.copyWith(position: current.position) != current;
+}
+
+/// Rebuilds [builder] when the playback position or duration changes.
+///
+/// The overlay itself ignores position ticks (see [_overlayNeedsRebuild]), so the
+/// two widgets that do draw the position read it through here: a tick then
+/// repaints two widgets instead of every control on screen.
+class _PositionBuilder extends StatelessWidget {
+  const _PositionBuilder({required this.builder});
+
+  final Widget Function(BuildContext context, PlayerState current) builder;
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<PlayerBloc, PlayerState>(
+        buildWhen: (previous, current) =>
+            previous.position != current.position || previous.duration != current.duration,
+        builder: builder,
+      );
 }
 
 class _Overlay extends StatelessWidget {
@@ -422,20 +442,24 @@ class _Overlay extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!state.isLive)
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    activeTrackColor: AppColors.gold,
-                    inactiveTrackColor: Colors.white24,
-                    thumbColor: AppColors.gold,
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  ),
-                  child: Slider(
-                    value: state.progress.clamp(0.0, 1.0),
-                    onChanged: (value) => bloc.add(PlayerSeeked(
-                      Duration(milliseconds: (state.duration.inMilliseconds * value).round()),
-                    )),
+                _PositionBuilder(
+                  builder: (context, current) => SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      activeTrackColor: AppColors.gold,
+                      inactiveTrackColor: Colors.white24,
+                      thumbColor: AppColors.gold,
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    ),
+                    child: Slider(
+                      value: current.progress.clamp(0.0, 1.0),
+                      onChanged: (value) => bloc.add(PlayerSeeked(
+                        Duration(
+                          milliseconds: (current.duration.inMilliseconds * value).round(),
+                        ),
+                      )),
+                    ),
                   ),
                 ),
               Row(
@@ -450,9 +474,11 @@ class _Overlay extends StatelessWidget {
                   if (state.isLive)
                     const Text('LIVE', style: TextStyle(color: AppColors.red, fontSize: 11, fontWeight: FontWeight.bold))
                   else
-                    Text(
-                      '${formatDuration(state.position)} / ${formatDuration(state.duration)}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    _PositionBuilder(
+                      builder: (context, current) => Text(
+                        '${formatDuration(current.position)} / ${formatDuration(current.duration)}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
                     ),
                   const Spacer(),
                   _IconControl(
