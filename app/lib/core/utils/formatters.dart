@@ -29,6 +29,25 @@ String formatMinutes(int minutes) =>
 
 String twoDigits(int value) => value.toString().padLeft(2, '0');
 
+/// When the build the app is running was made, as the time its `data/app.so`
+/// was written.
+///
+/// `re_iptv.exe` is only the C++ shell and keeps the date it was first built, so
+/// its timestamp says nothing about which version is running; every line of Dart
+/// ships in `data/app.so` next to it, and that file is rewritten by every build.
+String buildStamp() {
+  try {
+    final exe = File(Platform.resolvedExecutable);
+    final separator = Platform.pathSeparator;
+    final snapshot = File('${exe.parent.path}${separator}data${separator}app.so');
+    final file = snapshot.existsSync() ? snapshot : exe;
+    final modified = file.statSync().modified;
+    return '${formatDate(modified)} ${formatClock(modified)}';
+  } catch (_) {
+    return 'unknown';
+  }
+}
+
 /// Resolves an image path that may be a bundled asset, an absolute file path or
 /// a network URL. Keeps personalisation simple: point the config at a local
 /// file and it just works.

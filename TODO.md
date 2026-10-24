@@ -238,7 +238,7 @@ and the arrows seeking ten seconds either way.
 
 ## 10. A film started again instead of resuming — `[~]`
 
-Three separate faults, and it took all three to keep a film from resuming:
+Four separate faults, and it took all four to keep a film from resuming:
 
 1. **Nothing was written.** Progress was saved only when the player screen was
    disposed or the film finished. The app's close button closes the window, and
@@ -259,6 +259,14 @@ Three separate faults, and it took all three to keep a film from resuming:
    with nothing in it, while going back further, to the list, and opening the film
    again gave the write time to land and resumed correctly. That asymmetry is what
    gave this fault away.
+4. **The page read its resume state too late.** The bar and the play button on a
+   film's own page come from a copy of the resume list that the page reads itself,
+   and that read was queued behind the provider's metadata call (`get_vod_info`,
+   `get_series_info`). Right after a stream has closed that call can take seconds,
+   and until it answered the page showed no bar and its play button started the
+   film over — while the *grid* showed the bar correctly, because the grid takes
+   its bars from the bloc's state, which needs no provider call. List right, page
+   stale: that split is what pointed here.
 
 **Fixed:** progress is written as playback goes — every `progressSaveInterval`
 (10 s), after a seek, and on completion. Each write is queued behind the previous
@@ -276,6 +284,15 @@ streams and anything under 30 s are left alone, as before.
 A film watched to the end now drops its resume entry, so playing it again starts
 the film over rather than dropping the viewer on its last minute.
 
+The two detail screens now read their watch state — the favourite flag and the
+resume positions — on its own and straight from the local store, before and
+independently of the metadata call, and re-read that part alone as the player
+pops. Nothing on the way to the bar waits on the provider any more.
+
+`Settings → About` shows the running build (`data\app.so`'s timestamp). The exe
+keeps the date it was first built — all the Dart ships beside it — so the file
+name alone could not say whether a build had been replaced or a fix had failed.
+
 `app/test/content_repository_test.dart` pins the contract resume depends on: the id
 the player files a film under is the one the detail screen looks it up by, an
 episode lands in the series list rather than with the films, re-watching moves an
@@ -284,7 +301,8 @@ the others alone.
 
 **To check:** play a film for a minute or two, then back out with the player's own
 button and press play again *from the film's page* — it should carry on where it
-stopped. Same for an episode. Watch one through to the end and play it again — it
+stopped, and the **Continue watching** bar should be on that page the moment it
+appears. Same for an episode. Watch one through to the end and play it again — it
 should start over.
 
 **Still open:** the last few seconds before closing the window are lost, because a

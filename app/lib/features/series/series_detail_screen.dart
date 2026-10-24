@@ -47,19 +47,38 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final content = getIt<ContentRepository>();
-    final info = await content.seriesInfo(playlist, widget.series.seriesId);
-    final favorite = await content.isFavorite(playlist, ContentKind.series, widget.series.seriesId);
-    final progress = await content.continueWatching(playlist, ContentKind.series);
+    // Resume positions are read from the local store while the provider's
+    // metadata is still on its way, rather than after it: the episodes list
+    // waits for the metadata either way, but the positions must not.
+    final watchState = _refreshWatchState();
+    final info = await getIt<ContentRepository>().seriesInfo(playlist, widget.series.seriesId);
+    await watchState;
     if (!mounted) return;
     setState(() {
       _info = info;
-      _favorite = favorite;
       _season = info.seasons.isEmpty ? null : info.seasons.first;
-      for (final p in progress) {
-        _progress[p.id] = p;
-      }
       _loading = false;
+    });
+  }
+
+  /// Reads this series' favourite flag and its episodes' resume positions from
+  /// the local store.
+  ///
+  /// Called on load and again as the player pops, which is safe precisely
+  /// because it touches no network.
+  Future<void> _refreshWatchState() async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final content = getIt<ContentRepository>();
+    final favorite =
+        await content.isFavorite(playlist, ContentKind.series, widget.series.seriesId);
+    final progress = await content.continueWatching(playlist, ContentKind.series);
+    if (!mounted) return;
+    setState(() {
+      _favorite = favorite;
+      _progress
+        ..clear()
+        ..addEntries(progress.map((p) => MapEntry(p.id, p)));
     });
   }
 
@@ -100,7 +119,10 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
     );
     if (mounted && context.mounted) {
       context.read<ContentBloc>().add(const ContentWatchStateReloaded());
-      await _load();
+      // Only the watch state: the episode list has not changed, and asking for
+      // it again would leave the resume positions behind a provider call that
+      // can be slow right after a stream has closed.
+      await _refreshWatchState();
     }
   }
 

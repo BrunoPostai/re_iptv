@@ -7,6 +7,7 @@ import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
 import '../../core/i18n/l10n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/repositories/content_repository.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/sources/playlist_source.dart';
@@ -630,6 +631,11 @@ class SettingsScreen extends StatelessWidget {
                 config.branding.website,
                 style: const TextStyle(fontSize: 12, color: AppColors.gold),
               ),
+              const SizedBox(height: 12),
+              // The `data\app.so` timestamp: the quickest way to tell whether the
+              // build on disk is the one in use. Closing the window without
+              // restarting keeps the old build running.
+              InfoRow(label: 'Build', value: buildStamp()),
             ],
           ),
         ),

@@ -42,21 +42,37 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   Future<void> _load() async {
     final playlist = _playlist;
-    if (playlist != null) {
-      final content = getIt<ContentRepository>();
-      final info = await content.movieInfo(playlist, widget.movie);
-      final favorite = await content.isFavorite(playlist, ContentKind.movie, widget.movie.streamId);
-      final progress = await content.continueWatching(playlist, ContentKind.movie);
-      if (!mounted) return;
-      setState(() {
-        _movie = info;
-        _favorite = favorite;
-        _progress = progress.where((p) => p.id == '${widget.movie.streamId}').toList();
-        _loading = false;
-      });
+    if (playlist == null) {
+      if (mounted) setState(() => _loading = false);
       return;
     }
-    if (mounted) setState(() => _loading = false);
+    // Watch state first, and on its own: it comes from the local store, so it
+    // needs no provider call. Read behind `movieInfo` it arrived whenever that
+    // call happened to answer — and coming back from the player in the meantime
+    // showed a page with no "Continue watching" bar whose play button started
+    // the film over, until the page was opened again.
+    await _refreshWatchState();
+    final info = await getIt<ContentRepository>().movieInfo(playlist, widget.movie);
+    if (!mounted) return;
+    setState(() => _movie = info);
+  }
+
+  /// Reads this film's favourite flag and resume position from the local store.
+  ///
+  /// Called on load and again as the player pops, which is safe precisely
+  /// because it touches no network.
+  Future<void> _refreshWatchState() async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final content = getIt<ContentRepository>();
+    final favorite = await content.isFavorite(playlist, ContentKind.movie, widget.movie.streamId);
+    final progress = await content.continueWatching(playlist, ContentKind.movie);
+    if (!mounted) return;
+    setState(() {
+      _favorite = favorite;
+      _progress = progress.where((p) => p.id == '${widget.movie.streamId}').toList();
+      _loading = false;
+    });
   }
 
   Future<void> _toggleFavorite() async {
@@ -92,7 +108,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
     if (mounted && context.mounted) {
       context.read<ContentBloc>().add(const ContentWatchStateReloaded());
-      await _load();
+      // Only the watch state: the film's metadata has not changed, and asking
+      // for it again would leave the bar and the resume position behind a
+      // provider call that can be slow right after a stream has closed.
+      await _refreshWatchState();
     }
   }
 
