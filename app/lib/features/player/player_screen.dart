@@ -111,7 +111,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final bloc = context.read<PlayerBloc>();
-    switch (event.logicalKey) {
+    switch (_shortcutKey(event)) {
       case LogicalKeyboardKey.space:
         bloc.add(const PlayerPlayPause());
         break;
@@ -145,6 +145,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _showOverlay();
     return KeyEventResult.handled;
   }
+
+  /// Which key to act on for [event].
+  ///
+  /// The two letter shortcuts are matched on the physical key rather than the
+  /// logical one. `logicalKey` follows the layout, so on a keyboard that puts a
+  /// different letter or symbol where "I" and "F" sit — or with an IME active —
+  /// pressing the key labelled "I" reports something else entirely, and the
+  /// shortcut looks broken with nothing to hint at why. The physical key is the
+  /// position actually pressed, so the shortcut holds wherever the hands are.
+  LogicalKeyboardKey _shortcutKey(KeyEvent event) => switch (event.physicalKey) {
+        PhysicalKeyboardKey.keyF => LogicalKeyboardKey.keyF,
+        PhysicalKeyboardKey.keyI => LogicalKeyboardKey.keyI,
+        _ => event.logicalKey,
+      };
 
   @override
   Widget build(BuildContext context) {
