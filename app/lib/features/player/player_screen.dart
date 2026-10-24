@@ -157,91 +157,106 @@ class _PlayerScreenState extends State<PlayerScreen> {
             },
             child: MouseRegion(
               onHover: (_) => _showOverlay(),
-              child: BlocBuilder<PlayerBloc, PlayerState>(
-                builder: (context, state) {
-                  _last = state;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Center(
-                        child: Video(
-                          controller: context.read<PlayerBloc>().controller,
-                          controls: NoVideoControls,
-                          fill: Colors.black,
-                        ),
+              child: Builder(
+                builder: (context) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Kept out of the reactive subtree: libmpv reports position
+                    // several times a second, and rebuilding the video surface
+                    // on every tick is wasted work.
+                    Center(
+                      child: Video(
+                        controller: context.read<PlayerBloc>().controller,
+                        controls: NoVideoControls,
+                        fill: Colors.black,
                       ),
-                      // The player route is frameless, so this invisible strip is
-                      // what allows the window to be dragged during playback. It
-                      // sits above the video but below the overlay, and is
-                      // translucent so the controls still receive their taps.
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 34,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onPanStart: (_) => windowManager.startDragging(),
-                          onDoubleTap: () async {
-                            if (await windowManager.isMaximized()) {
-                              await windowManager.unmaximize();
-                            } else {
-                              await windowManager.maximize();
-                            }
-                          },
-                        ),
-                      ),
-                      if (state.buffering)
-                        const Center(
-                          child: SizedBox(
-                            width: 46,
-                            height: 46,
-                            child: CircularProgressIndicator(strokeWidth: 3),
-                          ),
-                        ),
-                      if (state.error != null)
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.red),
+                    ),
+                    BlocBuilder<PlayerBloc, PlayerState>(
+                      buildWhen: _overlayNeedsRebuild,
+                      builder: (context, state) {
+                        _last = state;
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // The player route is frameless, so this invisible
+                            // strip is what allows the window to be dragged
+                            // during playback. It sits above the video but below
+                            // the overlay, and is translucent so the controls
+                            // still receive their taps.
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 34,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onPanStart: (_) => windowManager.startDragging(),
+                                onDoubleTap: () async {
+                                  if (await windowManager.isMaximized()) {
+                                    await windowManager.unmaximize();
+                                  } else {
+                                    await windowManager.maximize();
+                                  }
+                                },
+                              ),
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.error_outline, color: AppColors.red, size: 34),
-                                const SizedBox(height: 8),
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 520),
-                                  child: Text(
-                                    state.error!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            if (state.buffering)
+                              const Center(
+                                child: SizedBox(
+                                  width: 46,
+                                  height: 46,
+                                  child: CircularProgressIndicator(strokeWidth: 3),
+                                ),
+                              ),
+                            if (state.error != null)
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppColors.red),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.error_outline,
+                                          color: AppColors.red, size: 34),
+                                      const SizedBox(height: 8),
+                                      ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 520),
+                                        child: Text(
+                                          state.error!,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                              color: Colors.white70, fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
+                            AnimatedOpacity(
+                              opacity: _overlayVisible ? 1 : 0,
+                              duration: const Duration(milliseconds: 200),
+                              child: IgnorePointer(
+                                ignoring: !_overlayVisible,
+                                child: _Overlay(
+                                  state: state,
+                                  onBack: () => Navigator.of(context).maybePop(),
+                                  onToggleFullscreen: _toggleFullscreen,
+                                  fullscreen: _fullscreen,
+                                  subtitleSize: settings.subtitleSize,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      AnimatedOpacity(
-                        opacity: _overlayVisible ? 1 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: IgnorePointer(
-                          ignoring: !_overlayVisible,
-                          child: _Overlay(
-                            state: state,
-                            onBack: () => Navigator.of(context).maybePop(),
-                            onToggleFullscreen: _toggleFullscreen,
-                            fullscreen: _fullscreen,
-                            subtitleSize: settings.subtitleSize,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -249,6 +264,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     );
   }
+}
+
+/// Whether a new player state has to rebuild the overlay.
+///
+/// A live stream has no scrubber, so the position ticks libmpv emits several
+/// times a second are ignored — otherwise the overlay would rebuild
+/// continuously for the whole time a channel is playing.
+bool _overlayNeedsRebuild(PlayerState previous, PlayerState current) {
+  if (previous == current) return false;
+  if (!current.isLive) return true;
+  return previous.copyWith(position: current.position) != current;
 }
 
 class _Overlay extends StatelessWidget {
