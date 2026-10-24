@@ -212,6 +212,61 @@ should bring everything back.
 
 ---
 
+## 9. No key did anything in the player — `[~]`
+
+`I` (stats), `F` (fullscreen), space, the arrow keys and `Escape` all did nothing,
+while every button on the same overlay worked. The handler was reading the player's
+bloc out of the widget tree — `context.read<PlayerBloc>()` — but this screen
+*creates* that `BlocProvider` in its own `build`, so the `State`'s context sits
+above it. The read threw `ProviderNotFoundException` before the switch was ever
+reached, on every key press, in a release build where nothing listens for it.
+A `State` cannot reach a provider its own `build` creates.
+
+Verified rather than guessed: a throwaway probe printed
+`FROM STATE CONTEXT: ProviderNotFoundException` / `FROM INNER CONTEXT: found`.
+
+The bloc is now created by the screen and handed to `BlocProvider.value`, so the
+handler reaches it directly, and `dispose` closes it since the provider no longer
+owns it. Physical-key matching for `F`/`I` stays, so the shortcuts still work on a
+keyboard that does not put those letters where they are labelled.
+
+**To check:** in the player, `I` shows the stats read-out, `F` and `Escape` leave
+fullscreen — `Escape` closing the player when it is not fullscreen, space pausing,
+and the arrows seeking ten seconds either way.
+
+---
+
+## 10. A film started again instead of resuming — `[~]`
+
+Progress was written only when the player screen was disposed or the film finished.
+The app's close button closes the window, and closing a window destroys it without
+ever unmounting the player's route — so quitting mid-film saved nothing at all, and
+the film began at zero next time. Backing out with the player's own button did
+save, but as a write nothing waited for, which a quick quit could outrun.
+
+Progress is now written as playback goes: every `progressSaveInterval` (10 s) of
+playback, after a seek, and on completion. Each write is queued behind the previous
+one, because a write reads the list it is about to replace — two at once could drop
+an entry — and queueing also keeps the write made while leaving ordered last. Live
+streams and anything under 30 s are left alone, as before.
+
+`app/test/content_repository_test.dart` pins the contract resume depends on: the id
+the player files a film under is the one the detail screen looks it up by, an
+episode lands in the series list rather than with the films, and re-watching moves
+an entry to the front instead of adding a second one.
+
+**To check:** play a film for a minute, close the app with its close button, reopen
+and press play — it should resume within ten seconds of where it stopped. Same for
+an episode.
+
+**Still open:** the last few seconds before closing are lost. Catching the close
+itself (`setPreventClose` plus `onWindowClose`, saving and then destroying) would
+make it exact, at the cost of the window not closing at all if that handler ever
+fails to let it go. The watched lists `markWatched` writes to are read by nothing,
+so a finished film also stays in Continue Watching at ~95%; both are backlog below.
+
+---
+
 ## Backlog
 
 - Persist the last used volume per stream kind instead of resetting to the
@@ -220,3 +275,9 @@ should bring everything back.
   so switching channels does not re-request.
 - Preview: optional custom "offline" image via `branding`, if the built-in card
   is not wanted.
+- Save progress on window close as well as as it goes, so a resume lands exactly
+  where the viewer stopped rather than up to ten seconds earlier.
+- The watched lists (`markWatched`) have no reader: nothing hides a finished film,
+  so completing one leaves it in Continue Watching near the end, and an episode
+  marks a *film* watched under its own stream id. Both want deciding before the
+  lists are used for anything.
