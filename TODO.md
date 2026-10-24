@@ -238,7 +238,7 @@ and the arrows seeking ten seconds either way.
 
 ## 10. A film started again instead of resuming — `[~]`
 
-Two separate faults, and only the second one explains "back out and play it again":
+Three separate faults, and it took all three to keep a film from resuming:
 
 1. **Nothing was written.** Progress was saved only when the player screen was
    disposed or the film finished. The app's close button closes the window, and
@@ -252,17 +252,26 @@ Two separate faults, and only the second one explains "back out and play it agai
    is `media_kit` #1215, "the video always ignores the `seek()` command and starts
    from `Duration.zero`". So every attempt at resuming was thrown away, which is
    why the fix for (1) on its own changed nothing.
+3. **The write had not landed yet.** The screens that push the player re-read the
+   resume position the moment the route pops (`movie_detail_screen`, `series_detail_screen`),
+   and the write was made from `dispose` — a moment after that. Backing out of the
+   player onto the film's own page and pressing play again therefore read a list
+   with nothing in it, while going back further, to the list, and opening the film
+   again gave the write time to land and resumed correctly. That asymmetry is what
+   gave this fault away.
 
 **Fixed:** progress is written as playback goes — every `progressSaveInterval`
 (10 s), after a seek, and on completion. Each write is queued behind the previous
 one, because a write reads the list it is about to replace and two at once could
-drop an entry. The resume position now goes to libmpv inside the `Media` handed to
-`open`, which mpv applies in its `on_load` hook, before it starts decoding — the
-way libmpv is meant to be told. Since that does not stick for every stream,
-`PlayerBloc` also arms a one-shot check on the first duration the demuxer reports:
-a stream still sitting near its beginning two seconds later is seeked instead. It
-is looked at once, and never after the viewer seeks themselves. Live streams and
-anything under 30 s are left alone, as before.
+drop an entry. Leaving the player now saves first and waits for that write, so the
+page behind it already sees the new position — both the back button and `Escape`
+go through `_exit()`. The resume position itself goes to libmpv inside the `Media`
+handed to `open`, which mpv applies in its `on_load` hook, before it starts
+decoding — the way libmpv is meant to be told. Since that does not stick for every
+stream, `PlayerBloc` also arms a one-shot check on the first duration the demuxer
+reports: a stream still sitting near its beginning two seconds later is seeked
+instead. It is looked at once, and never after the viewer seeks themselves. Live
+streams and anything under 30 s are left alone, as before.
 
 A film watched to the end now drops its resume entry, so playing it again starts
 the film over rather than dropping the viewer on its last minute.
@@ -273,9 +282,10 @@ episode lands in the series list rather than with the films, re-watching moves a
 entry to the front instead of adding a second one, and clearing one entry leaves
 the others alone.
 
-**To check:** play a film for a minute or two, back out and play it again — it
-should carry on where it stopped. Watch one through to the end and play it again —
-it should start over.
+**To check:** play a film for a minute or two, then back out with the player's own
+button and press play again *from the film's page* — it should carry on where it
+stopped. Same for an episode. Watch one through to the end and play it again — it
+should start over.
 
 **Still open:** the last few seconds before closing the window are lost, because a
 write only lands every ten seconds. Catching the close itself (`setPreventClose`
