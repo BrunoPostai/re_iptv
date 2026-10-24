@@ -110,7 +110,7 @@ class _AppTitleBarState extends State<AppTitleBar> with WindowListener {
             ),
             ...widget.actions,
             _BarButton(
-              icon: Icons.vertical_align_bottom,
+              icon: Icons.remove,
               tooltip: 'Minimise',
               onTap: windowManager.minimize,
             ),
