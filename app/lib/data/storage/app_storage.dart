@@ -188,6 +188,36 @@ class AppStorage {
   Future<void> saveCategories(Box<dynamic> box, ContentKindKey key, List<Category> values) =>
       _writeList(box, key.storeKey, values.map((e) => e.toJson()).toList());
 
+  /// One channel's stored guide listings, or empty when none were kept.
+  ///
+  /// Decoded on the calling isolate, unlike the catalogue: this is a few dozen
+  /// listings for one channel, not tens of thousands of entries.
+  List<EpgProgram> epgPrograms(Box<dynamic> box, String key) {
+    final raw = box.get(key);
+    if (raw is! String || raw.isEmpty) return const [];
+    try {
+      final decoded = json.decode(raw) as List;
+      return decoded
+          .whereType<Map>()
+          .map((e) => EpgProgram.fromStoredJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> saveEpgPrograms(Box<dynamic> box, String key, List<EpgProgram> programs) =>
+      _writeList(box, key, programs.map((e) => e.toStoredJson()).toList());
+
+  /// Keys in [box] that begin with [prefix].
+  ///
+  /// Keys only: a caller that puts the day it stored something under into the key
+  /// can tell what has gone stale without reading a single value.
+  List<String> keysStartingWith(Box<dynamic> box, String prefix) =>
+      box.keys.whereType<String>().where((key) => key.startsWith(prefix)).toList();
+
+  Future<void> deleteKeys(Box<dynamic> box, Iterable<String> keys) => box.deleteAll(keys);
+
   // ------------------------------------------------------------ watch state
 
   List<String> idList(Box<dynamic> box, String key) {

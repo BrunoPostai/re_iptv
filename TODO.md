@@ -353,10 +353,39 @@ fresh request.
 **Checked:** partly — the guide scrolls and does not feel slow. Whether a return
 to a channel is answered from the cache was not measured; not urgent.
 
-**Still open:** the cache is in memory for the session, so a restart forgets it,
-and a guide fetched before midnight is served until that channel is picked again
-after it. Persisting it per day would carry listings across restarts, at the cost
-of a few hundred channels' worth of JSON in the content box.
+**Still open:** nothing. The listings are kept in the playlist's content box as well
+as in memory now, so a restart no longer re-asks the panel for every channel:
+
+* one entry per channel per day, keyed `epg-<date>-<streamId>` — the day is in the
+  key, so an entry from a day that has passed is found and dropped without a single
+  value being read, and that sweep runs once a session, when the guide is first
+  looked at;
+* the store holds exactly what memory holds: what the session cache evicts
+  (`epgCacheLimit` channels, the ones gone longest without being asked for) is
+  deleted from the box too, so a browse across a whole playlist cannot fill the
+  disk with listings the session itself has already forgotten;
+* an empty answer is never written, because a panel that answered with nothing is
+  asked again rather than remembered for the day;
+* the day is read at each use rather than fixed, so an app left running across
+  midnight files the new day's listings under the new day — a guide fetched before
+  midnight is no longer served after it.
+
+Every visit to the store is best-effort: the store is an optimisation, and a box
+closed under a request in flight (its playlist deleted while it was pending) must
+not turn into a guide that never arrives. `epgPrograms` stores a listing's title,
+description and both times as they are, rather than the provider's shape, whose
+base64 text and unix times have already been decoded by then.
+
+`app/test/content_repository_test.dart` covers it: a guide outlives a restart with
+the panel asked zero times, an empty answer is asked for again after one, a listing
+stored for another day is dropped and refetched, and the store is held to
+`epgCacheLimit` channels — with the evicted one proving to be a real eviction by
+costing a request when it is next picked.
+
+**To check:** pick through a few channels in **Live TV**, close the app, open it
+again and pick one of them: its guide should be there at once, with no loading
+state, because it never went away. The guide of a channel picked for the first time
+today should still arrive as it does now.
 
 ---
 

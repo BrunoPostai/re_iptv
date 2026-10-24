@@ -75,6 +75,11 @@ class ContentKeys {
   static const favoriteSeries = 'favorite-series';
   static const continueMovies = 'continue-watch-movies';
   static const continueSeries = 'continue-watch-episods';
+
+  /// Prefix of the guide listings kept in a content box: one entry per channel per
+  /// day, keyed `epg-<date>-<streamId>`, so a day's entries can be found and
+  /// dropped by key alone.
+  static const epg = 'epg';
 }
 
 /// How long a search box waits for typing to pause before it filters.
@@ -102,7 +107,9 @@ const epgEmptyRetry = Duration(minutes: 10);
 /// How many channels' guides are held in memory.
 ///
 /// Each is a few dozen small programmes, but a long browse can touch a whole
-/// playlist; past this the channel fetched longest ago is dropped.
+/// playlist; past this the channel fetched longest ago is dropped. The store keeps
+/// the same channels as memory — whatever is let go of here is let go of there —
+/// so a browse cannot fill the disk either.
 const epgCacheLimit = 250;
 
 /// How many channels below the selected one the guide is fetched for in the

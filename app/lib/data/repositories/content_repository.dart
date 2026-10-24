@@ -186,32 +186,131 @@ class ContentRepository {
   /// of picking a channel, asking again for the same day's listings. A channel is
   /// fetched once per day now: repeats are answered from memory, and two lookups
   /// of one channel at the same time share a single request.
+  ///
+  /// The day's listings are also written to the playlist's content box, so they
+  /// are still there after a restart instead of every channel costing a request
+  /// again. What is stored and what is held are the same channels
+  /// ([epgCacheLimit]), and an entry is dropped once the day it belongs to has
+  /// passed.
   Future<List<EpgProgram>> shortEpg(Playlist playlist, int streamId) {
     final catalogue = _catalogueFor(playlist);
     final cached = catalogue.epg[streamId];
     if (cached != null && cached.isCurrent) return Future.value(cached.programs);
     final pending = catalogue.epgPending[streamId];
     if (pending != null) return pending;
-    final request = _fetchEpg(playlist, streamId);
+    final request = _loadEpg(playlist, streamId);
     catalogue.epgPending[streamId] = request;
     return request.whenComplete(() => catalogue.epgPending.remove(streamId));
   }
 
-  Future<List<EpgProgram>> _fetchEpg(Playlist playlist, int streamId) async {
+  /// A channel's guide: from memory, else from the store, else from the panel.
+  Future<List<EpgProgram>> _loadEpg(Playlist playlist, int streamId) async {
+    final box = await _box(playlist);
+    final stored = await _storedEpg(box, _catalogueFor(playlist), streamId);
+    if (stored.isNotEmpty) {
+      _remember(_catalogueFor(playlist), streamId, stored);
+      return stored;
+    }
+    return _fetchEpg(playlist, box, streamId);
+  }
+
+  /// The guide stored for [streamId], or empty when there is none to read.
+  ///
+  /// The store is an optimisation — a guide that is not in it is fetched instead —
+  /// so a box that cannot be read is not a failure, and finding out that a day has
+  /// passed is part of looking.
+  Future<List<EpgProgram>> _storedEpg(
+    Box<dynamic> box,
+    _Catalogue catalogue,
+    int streamId,
+  ) async {
+    try {
+      await _pruneEpg(box, catalogue);
+      return _storage.epgPrograms(box, _epgKey(streamId));
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<EpgProgram>> _fetchEpg(Playlist playlist, Box<dynamic> box, int streamId) async {
     var programs = const <EpgProgram>[];
     try {
       programs = await _playlists.sourceFor(playlist).shortEpg(streamId);
     } catch (_) {
       // A channel whose panel will not answer still plays; the guide is a nicety.
     }
-    final cache = _catalogueFor(playlist).epg;
+    final dropped = _remember(_catalogueFor(playlist), streamId, programs);
+    await _persistEpg(box, streamId, programs, dropped);
+    return programs;
+  }
+
+  /// Writes what was fetched, and lets go of what the cache let go of.
+  ///
+  /// Best-effort, like every visit to the store: a box closed under this — its
+  /// playlist deleted while the request was in flight — must not turn into a guide
+  /// that never arrives. An empty answer is retried rather than remembered, so
+  /// there is nothing to write for one.
+  Future<void> _persistEpg(
+    Box<dynamic> box,
+    int streamId,
+    List<EpgProgram> programs,
+    int? dropped,
+  ) async {
+    try {
+      if (programs.isNotEmpty) {
+        await _storage.saveEpgPrograms(box, _epgKey(streamId), programs);
+      }
+      // What memory has let go of, the store lets go of too; see [epgCacheLimit].
+      if (dropped != null) await _storage.deleteKeys(box, [_epgKey(dropped)]);
+    } catch (_) {}
+  }
+
+  /// Puts [programs] in the session cache, dropping the channel that has gone
+  /// longest without being asked for.
+  ///
+  /// Returns the channel that was dropped, if the cache was full.
+  int? _remember(_Catalogue catalogue, int streamId, List<EpgProgram> programs) {
+    final cache = catalogue.epg;
     // Re-inserted so that the oldest entry is the one dropped when the cache is
     // full, rather than whichever channel was looked at first.
     cache
       ..remove(streamId)
       ..[streamId] = _EpgListings(programs);
-    if (cache.length > epgCacheLimit) cache.remove(cache.keys.first);
-    return programs;
+    if (cache.length <= epgCacheLimit) return null;
+    final evicted = cache.keys.first;
+    cache.remove(evicted);
+    return evicted;
+  }
+
+  /// Drops stored guide listings from a day that has passed.
+  ///
+  /// The day is part of the key, so this is a scan of keys and nothing else: no
+  /// entry has to be read or parsed to know it is stale. It runs once per session,
+  /// the first time the guide is looked at, which is the moment the store starts
+  /// to matter.
+  Future<void> _pruneEpg(Box<dynamic> box, _Catalogue catalogue) async {
+    if (catalogue.epgPruned) return;
+    catalogue.epgPruned = true;
+    final stale = _storage
+        .keysStartingWith(box, '${ContentKeys.epg}-')
+        .where((key) => !key.startsWith(_epgKeyPrefix))
+        .toList();
+    if (stale.isNotEmpty) await _storage.deleteKeys(box, stale);
+  }
+
+  /// Where one channel's guide is stored: the day it was fetched for and the
+  /// channel, so that a day's entries can be dropped without reading them.
+  static String _epgKey(int streamId) => '$_epgKeyPrefix$streamId';
+
+  /// Today, as it appears in a stored guide's key.
+  ///
+  /// Read on each use rather than fixed: an app left running across midnight has
+  /// to file the new day's listings under the new day.
+  static String get _epgKeyPrefix {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${ContentKeys.epg}-${now.year}-$month-$day-';
   }
 
   // -------------------------------------------------------------- watch state
@@ -359,6 +458,9 @@ class _Catalogue {
   /// selections of one channel make a single request.
   final Map<int, _EpgListings> epg = {};
   final Map<int, Future<List<EpgProgram>>> epgPending = {};
+
+  /// Whether the store has been swept of other days' guide listings this session.
+  bool epgPruned = false;
 }
 
 /// One channel's guide listings, and when the panel answered with them.

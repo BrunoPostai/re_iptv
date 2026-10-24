@@ -503,6 +503,33 @@ class EpgProgram extends Equatable {
     return now.isAfter(start) && now.isBefore(end);
   }
 
+  /// This listing as it is kept on disk.
+  ///
+  /// Not the shape [EpgProgram.fromJson] reads: that one decodes base64 text and
+  /// unix timestamps, and by this point both are already plain. The times go out
+  /// as they are and come back whole, so a stored listing is the one that was
+  /// fetched, not one rounded on the way through.
+  Map<String, dynamic> toStoredJson() => {
+        'title': title,
+        'description': description,
+        'start': start.toIso8601String(),
+        'end': end.toIso8601String(),
+      };
+
+  /// Reads back one entry written by [toStoredJson].
+  ///
+  /// An unreadable time becomes the epoch, which [hasUsableTime] then hides rather
+  /// than showing the row as `01:00 - 01:00`.
+  factory EpgProgram.fromStoredJson(Map<String, dynamic> json) => EpgProgram(
+        title: (json['title'] ?? '').toString(),
+        description: (json['description'] ?? '').toString(),
+        start: _storedTime(json['start']),
+        end: _storedTime(json['end']),
+      );
+
+  static DateTime _storedTime(Object? raw) =>
+      DateTime.tryParse((raw ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0);
+
   /// False when the payload carried no readable time, so the row can be hidden
   /// rather than shown as `01:00 - 01:00`.
   bool get hasUsableTime => start.year > 1970 && end.isAfter(start);

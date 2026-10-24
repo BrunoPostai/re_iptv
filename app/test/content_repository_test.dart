@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:re_iptv/core/config/app_config.dart';
+import 'package:re_iptv/core/constants.dart';
 import 'package:re_iptv/data/models/models.dart';
 import 'package:re_iptv/data/repositories/content_repository.dart';
 import 'package:re_iptv/data/repositories/playlist_repository.dart';
@@ -288,6 +289,73 @@ void main() {
     // long enough that switching between channels does not re-ask, short enough
     // that a request which failed is tried again.
     expect(source.callsFor(12), 1);
+  });
+
+  test('a guide outlives a restart', () async {
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+    final (before, beforeRestart) = countingContent(programs: [programme()]);
+    await before.shortEpg(playlist, 11);
+    expect(beforeRestart.callsFor(11), 1);
+
+    // A second repository over the same store is what a restart looks like. The
+    // panel must not be asked again for a listing that was already fetched: the
+    // guide opening with a request per channel is what this is for.
+    final (after, afterRestart) = countingContent(programs: [programme()]);
+    final programs = await after.shortEpg(playlist, 11);
+
+    expect(programs.single.title, 'Evening News');
+    expect(programs.single.start, DateTime(2026, 1, 1, 20));
+    expect(programs.single.end, DateTime(2026, 1, 1, 21));
+    expect(afterRestart.callsFor(11), 0);
+  });
+
+  test('a guide that came back empty is asked for again after a restart', () async {
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+    final (before, _) = countingContent();
+    expect(await before.shortEpg(playlist, 12), isEmpty);
+
+    final (after, afterRestart) = countingContent(programs: [programme()]);
+    final programs = await after.shortEpg(playlist, 12);
+
+    // A channel with nothing to show leaves nothing behind, because an empty
+    // answer is as likely to be a request that failed as a channel without a
+    // guide — so the next session asks again.
+    expect(afterRestart.callsFor(12), 1);
+    expect(programs.single.title, 'Evening News');
+  });
+
+  test('a guide stored for a day that has passed is dropped', () async {
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+    final guideBox = await boxFor(playlist.id);
+    await storage.saveEpgPrograms(guideBox, 'epg-2000-01-01-11', [programme()]);
+
+    final (content, source) = countingContent(programs: [programme()]);
+    await content.shortEpg(playlist, 11);
+
+    // The day is in the key, so a listing from another day is found and dropped
+    // without being read at all, and yesterday's guide is not served as today's.
+    expect(storage.keysStartingWith(guideBox, 'epg-2000'), isEmpty);
+    expect(storage.keysStartingWith(guideBox, 'epg-'), hasLength(1));
+    expect(source.callsFor(11), 1);
+  });
+
+  test('the store keeps the channels the session cache keeps, and no more', () async {
+    const playlist = Playlist(id: 'xc', name: 'Xtream', url: 'http://panel.invalid');
+    final (content, source) = countingContent(programs: [programme()]);
+    final guideBox = await boxFor(playlist.id);
+
+    for (var streamId = 1; streamId <= epgCacheLimit + 1; streamId++) {
+      await content.shortEpg(playlist, streamId);
+    }
+
+    // One channel past the limit, so the first has gone — from the box as well as
+    // from memory, or a browse across a whole playlist would fill the disk with
+    // the listings the session itself has already forgotten.
+    expect(storage.keysStartingWith(guideBox, 'epg-'), hasLength(epgCacheLimit));
+
+    // And it is a real eviction: asking for that channel again is a request.
+    await content.shortEpg(playlist, 1);
+    expect(source.callsFor(1), 2);
   });
 }
 
