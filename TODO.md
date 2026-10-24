@@ -131,8 +131,6 @@ Still open:
   diagnostic, but it should move to the language files if it is kept.
 - For **movies/series** the position ticks still rebuild the overlay, because the
   scrubber needs them; scope that rebuild to the slider alone.
-- The catalogue is `json.decode`d / `json.encode`d on the UI isolate in
-  `AppStorage`; a large playlist belongs on an isolate via `compute`.
 
 What to try if the numbers point at the provider, now that they no longer need a
 rebuild: in `player.live_tuning`, `reconnect: true` for streams that drop
