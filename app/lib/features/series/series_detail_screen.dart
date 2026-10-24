@@ -82,7 +82,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
           : 'S${episode.season} · E${episode.episodeNum} · ${episode.title}',
       image: episode.image.isNotEmpty ? episode.image : series.cover,
       url: getIt<PlaylistRepository>().sourceFor(playlist).episodeUrl(episode),
-      streamId: int.tryParse(episode.id) ?? episode.episodeNum,
+      streamId: episode.streamId,
       kind: 'episode',
       parentId: series.seriesId,
       season: episode.season,
@@ -167,7 +167,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
         ? _queue[index]
         : _mediaItem(series, episode, playlist);
     if (item.url.isEmpty) return;
-    final id = '${series.seriesId}:${episode.id}';
+    final id = ContentRepository.episodeProgressId(series.seriesId, episode.streamId);
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
@@ -383,7 +383,9 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                                     itemCount: episodes.length,
                                     itemBuilder: (context, index) {
                                       final episode = episodes[index];
-                                      final id = '${series.seriesId}:${episode.id}';
+                                      final id =
+                                          ContentRepository.episodeProgressId(
+                                              series.seriesId, episode.streamId);
                                       final progress = _progress[id];
                                       return _EpisodeTile(
                                         episode: episode,

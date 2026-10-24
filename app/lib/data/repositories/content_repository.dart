@@ -244,6 +244,15 @@ class ContentRepository {
         _ => (ContentKind.movie, streamId),
       };
 
+  /// The id an episode's resume position is filed and looked up under.
+  ///
+  /// Both halves come from the item the player opened — the series it belongs to
+  /// and the stream id it was played by (`Episode.streamId`) — so the series page
+  /// has to derive it the same way. Building it from the provider's raw episode id
+  /// instead looked identical for every panel that numbers its episodes plainly,
+  /// and found nothing at all for the ones that do not.
+  static String episodeProgressId(int seriesId, int streamId) => '$seriesId:$streamId';
+
   Future<List<String>> watched(Playlist playlist, ContentKind kind) async =>
       _storage.idList(await _box(playlist), watchedKey(kind));
 

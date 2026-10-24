@@ -79,8 +79,44 @@ void main() {
     expect((await content.continueWatching(playlist, ContentKind.series)).map((p) => p.id), ['3:9']);
   });
 
-  test('re-watching moves an entry to the front instead of adding another', () async {
-    await content.saveProgress(playlist, film(position: const Duration(minutes: 5)));
+  test('an episode is filed under the id the page looks it up by, however it is numbered', () async {
+    // Not every panel numbers its episodes plainly: `e9`, `007`, or a whole URL
+    // are all real, and the fallback for each is the episode number. The page
+    // used to look the position up under the provider's raw episode id while the
+    // player filed it under the stream id derived from it, so those panels lost
+    // the episode's progress bar and started the episode over from the top.
+    const odd = Episode(id: 'e9', episodeNum: 9, season: 1);
+    const padded = Episode(id: '007', episodeNum: 7, season: 1);
+    const plain = Episode(id: '42', episodeNum: 7, season: 1);
+    const url = Episode(id: 'http://playlist.invalid/series/e9.mp4', episodeNum: 9, season: 1);
+
+    expect(ContentRepository.episodeProgressId(3, odd.streamId), '3:9');
+    expect(ContentRepository.episodeProgressId(3, padded.streamId), '3:7');
+    expect(ContentRepository.episodeProgressId(3, url.streamId), '3:9');
+    // A plain id is used as it is, and is not the episode number.
+    expect(ContentRepository.episodeProgressId(3, plain.streamId), '3:42');
+
+    await content.saveProgress(
+      playlist,
+      WatchProgress(
+        id: ContentRepository.episodeProgressId(3, odd.streamId),
+        kind: 'episode',
+        title: 'An Episode',
+        position: const Duration(minutes: 2),
+        duration: const Duration(minutes: 45),
+        updatedAt: DateTime(2026, 1, 2),
+        parentId: 3,
+        season: 1,
+        episodeNum: 9,
+      ),
+    );
+
+    // Read back exactly as the page reads it.
+    final saved = await content.continueWatching(playlist, ContentKind.series);
+    expect(saved.single.id, ContentRepository.episodeProgressId(3, odd.streamId));
+  });
+
+  test('re-watching moves an entry to the front instead of adding another', () async {    await content.saveProgress(playlist, film(position: const Duration(minutes: 5)));
     await content.saveProgress(playlist, episode());
     await content.saveProgress(playlist, film(position: const Duration(minutes: 40)));
 

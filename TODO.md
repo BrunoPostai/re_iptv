@@ -392,7 +392,8 @@ it; the original shows no check on a channel row, so that list stays unused. (Th
 search results were the other half of this and are done — see §15.) The
 episode → series mapping still wants one end-to-end look: the green check is
 confirmed on a watched film (§15), and an episode can now be watched to the end at
-all — see §17.
+all — see §17. Its *resume* id was the other half of the same story and is now
+derived once instead of twice — see §18.
 
 ---
 
@@ -555,6 +556,38 @@ by a test rather than left to the next reader.
 **Still open:** nothing advances on its own at the end of an episode — the buttons
 are there, but the viewer presses them. Auto-advance (with a countdown) is the
 obvious next step if it is wanted.
+
+---
+
+## 18. An episode's resume position was filed under an id nothing read — `[x]`
+
+The player files an episode's progress under the series it belongs to and the
+stream id it was played by — `parentId:streamId` — and that stream id is derived
+from the provider's episode id, because the episode's own stream is what the panel
+is asked for by it. The series page looked the position up under
+`seriesId:episode.id` instead: the **raw** episode id, not the derived one.
+
+The two strings come out identical for any panel that numbers its episodes plainly,
+which is why nothing had caught it: they agreed by coincidence. On a panel that
+sends `e9`, or `007`, or a whole URL as an episode id — all of which are real — the
+episode row had no progress bar and the episode started over from the top, however
+much of it had been watched.
+
+**Fixed:** the derivation lives on the model, beside the data it is about —
+`Episode.streamId`, the parsed id with the episode number as its fallback, since
+that is the only other thing about an episode every panel sends — and the id format
+lives in one place, `ContentRepository.episodeProgressId`, next to `watchedEntry`.
+The player writes it, and the series page's **Continue watching** bar and its
+episode rows read it. Nothing builds a `series:episode` string by hand any more.
+
+`app/test/content_repository_test.dart` pins the four shapes an episode id arrives
+in — `e9`, `007`, `42` and a URL — and reads the entry back from the store the way
+the page reads it.
+
+**To check:** on this playlist nothing should look different — the bug only showed
+on panels that number episodes oddly. Watching part of an episode and backing out
+should leave the progress bar on its row and carry on from there when pressed, same
+as before.
 
 ---
 

@@ -420,6 +420,16 @@ class Episode extends Equatable {
     this.rating = 0,
   });
 
+  /// The stream id this episode is played by.
+  ///
+  /// Usually the provider's own episode id, which is what its stream is asked
+  /// for by — but not every panel sends a plain number: `e1`, or `007`, or an id
+  /// that is empty. Those fall back to the episode number, which is the only
+  /// other thing about an episode the panel is guaranteed to have sent. Anything
+  /// that files or looks this episode up has to agree on it, so it is derived
+  /// once, here.
+  int get streamId => int.tryParse(id) ?? episodeNum;
+
   factory Episode.fromJson(Map<String, dynamic> j, {required int season}) {
     final info = Map<String, dynamic>.from((j['info'] as Map?) ?? const {});
     return Episode(

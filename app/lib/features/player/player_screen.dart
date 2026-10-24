@@ -173,7 +173,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
 
     final content = getIt<ContentRepository>();
     final progress = WatchProgress(
-      id: item.kind == 'episode' ? '${item.parentId}:${item.streamId}' : '${item.streamId}',
+      id: item.kind == 'episode'
+          ? ContentRepository.episodeProgressId(item.parentId, item.streamId)
+          : '${item.streamId}',
       kind: item.kind,
       title: item.title,
       image: item.image ?? '',
