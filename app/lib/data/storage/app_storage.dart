@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -138,12 +139,23 @@ class AppStorage {
 
   // ------------------------------------------------------------ content cache
 
-  List<T> _decodeList<T>(Box<dynamic> box, String key, T Function(Map<String, dynamic>) fromJson) {
+  /// Decodes one stored JSON list in a background isolate.
+  ///
+  /// `json.decode` plus a model per entry is the heaviest thing this app does to
+  /// a large catalogue — tens of thousands of strings and objects, all of it on
+  /// the isolate that draws the frame — so the work is handed to [compute]. The
+  /// finished list does still have to be copied back, but that is cheaper than
+  /// parsing the JSON here, and an unreadable store degrades to an empty list
+  /// exactly as it did before.
+  Future<List<T>> _decodeList<T>(
+    Box<dynamic> box,
+    String key,
+    List<T> Function(String raw) parse,
+  ) async {
     final raw = box.get(key);
     if (raw is! String || raw.isEmpty) return const [];
     try {
-      final decoded = json.decode(raw) as List;
-      return decoded.whereType<Map>().map((e) => fromJson(Map<String, dynamic>.from(e))).toList();
+      return await compute(parse, raw);
     } catch (_) {
       return const [];
     }
@@ -152,23 +164,26 @@ class AppStorage {
   Future<void> _writeList(Box<dynamic> box, String key, List<dynamic> values) =>
       box.put(key, json.encode(values));
 
-  List<Channel> channels(Box<dynamic> box) => _decodeList(box, ContentKeys.channels, Channel.fromJson);
+  Future<List<Channel>> channels(Box<dynamic> box) =>
+      _decodeList(box, ContentKeys.channels, _parseChannels);
 
   Future<void> saveChannels(Box<dynamic> box, List<Channel> values) =>
       _writeList(box, ContentKeys.channels, values.map((e) => e.toJson()).toList());
 
-  List<Movie> movies(Box<dynamic> box) => _decodeList(box, ContentKeys.movies, Movie.fromJson);
+  Future<List<Movie>> movies(Box<dynamic> box) =>
+      _decodeList(box, ContentKeys.movies, _parseMovies);
 
   Future<void> saveMovies(Box<dynamic> box, List<Movie> values) =>
       _writeList(box, ContentKeys.movies, values.map((e) => e.toJson()).toList());
 
-  List<Series> series(Box<dynamic> box) => _decodeList(box, ContentKeys.series, Series.fromJson);
+  Future<List<Series>> series(Box<dynamic> box) =>
+      _decodeList(box, ContentKeys.series, _parseSeries);
 
   Future<void> saveSeries(Box<dynamic> box, List<Series> values) =>
       _writeList(box, ContentKeys.series, values.map((e) => e.toJson()).toList());
 
-  List<Category> categories(Box<dynamic> box, ContentKindKey key) =>
-      _decodeList(box, key.storeKey, Category.fromJson);
+  Future<List<Category>> categories(Box<dynamic> box, ContentKindKey key) =>
+      _decodeList(box, key.storeKey, _parseCategories);
 
   Future<void> saveCategories(Box<dynamic> box, ContentKindKey key, List<Category> values) =>
       _writeList(box, key.storeKey, values.map((e) => e.toJson()).toList());
@@ -213,4 +228,20 @@ enum ContentKindKey {
 
   const ContentKindKey(this.storeKey);
   final String storeKey;
+}
+
+// Top-level, so [compute] can run them in a background isolate. Each one is
+// handed a raw JSON string and returns finished models.
+
+List<Channel> _parseChannels(String raw) => _parseList(raw, Channel.fromJson);
+
+List<Movie> _parseMovies(String raw) => _parseList(raw, Movie.fromJson);
+
+List<Series> _parseSeries(String raw) => _parseList(raw, Series.fromJson);
+
+List<Category> _parseCategories(String raw) => _parseList(raw, Category.fromJson);
+
+List<T> _parseList<T>(String raw, T Function(Map<String, dynamic>) fromJson) {
+  final decoded = json.decode(raw) as List;
+  return decoded.whereType<Map>().map((e) => fromJson(Map<String, dynamic>.from(e))).toList();
 }
