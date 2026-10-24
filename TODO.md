@@ -395,9 +395,9 @@ seconds and the window is handed back whatever happens — a close held open by 
 write that never finishes is an app that cannot be quit. The hold is dropped in
 `dispose` too, so leaving the player normally leaves the window closable.
 
-**To check:** pause a film a minute in, close the window from the title bar, start
-the app again and open the film — it should resume within a second or two of where
-it was left, not ten seconds earlier.
+**To check:** pause a film a minute in and close the app — from the player's own
+close button (§16) or the title bar — start the app again and open the film: it
+should resume within a second or two of where it was left, not ten seconds earlier.
 
 ---
 
@@ -443,6 +443,31 @@ came from, and the star can be toggled from the results themselves.
 **To check:** search for a film you have watched to the end — it should show the
 green check and no resume bar. Play a film's first minute from the results, back
 out to search: the poster should now have a resume bar, without searching again.
+
+---
+
+## 16. The player had no window buttons — `[~]`
+
+Reported while testing §13: *there is no close button in title bar*. The app draws
+its own title bar (`title_bar_style: custom`, so Windows draws none) and that bar
+does put minimise, maximise and close at its right-hand end — but the **player** is
+a route on top of it with a top bar of its own, and that bar held nothing but a
+Back arrow. So while anything was playing there was no minimise and no close
+anywhere: the only way to quit the app mid-film was to leave the player first.
+That is the very case §13 is about, which made its own test impossible to run as
+written.
+
+**Fixed:** the player's top bar carries minimise and close, drawn like the title
+bar's own buttons (flat, the height of the bar, red on hover for close). Close goes
+through the same held close as the title bar, so the position is flushed before the
+window goes (§13) — quitting from the player is now the *best* way out of a film,
+not the worst. Maximise is deliberately left out: double-clicking the top bar
+already toggles it, and it sits next to the overlay's own fullscreen toggle, which
+is a different thing.
+
+**To check:** while a film plays, move the mouse to the top of the screen — a `-`
+and an `✕` should appear at the right. `-` minimises, `✕` quits the app, and
+opening the film again resumes where it was.
 
 ---
 

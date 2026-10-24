@@ -524,6 +524,22 @@ class _Overlay extends StatelessWidget {
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               const SizedBox(width: 12),
+              // The player covers the window's title bar and draws none of its
+              // own, so minimising and closing the app have to live here or not
+              // at all — otherwise the only way out of a film is to leave it
+              // first. Closing goes through the held close (§13), so the
+              // position is written before the window goes.
+              _WindowButton(
+                icon: Icons.remove,
+                tooltip: 'Minimise',
+                onTap: windowManager.minimize,
+              ),
+              _WindowButton(
+                icon: Icons.close,
+                tooltip: 'Close',
+                hoverColor: AppColors.red,
+                onTap: windowManager.close,
+              ),
             ],
           ),
         ),
@@ -771,5 +787,53 @@ class _IconControl extends StatelessWidget {
       splashRadius: 16,
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// A window button in the player's top bar: flat, filling the bar's height the
+/// way the title bar's own buttons do, so minimise and close read as window
+/// controls rather than as another playback control.
+class _WindowButton extends StatefulWidget {
+  const _WindowButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+    this.hoverColor,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+  final Color? hoverColor;
+
+  @override
+  State<_WindowButton> createState() => _WindowButtonState();
+}
+
+class _WindowButtonState extends State<_WindowButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            width: 40,
+            height: 34,
+            alignment: Alignment.center,
+            color: _hovered
+                ? (widget.hoverColor ?? Colors.white).withValues(alpha: 0.18)
+                : Colors.transparent,
+            child: Icon(widget.icon, size: 15, color: Colors.white),
+          ),
+        ),
+      ),
+    );
   }
 }
