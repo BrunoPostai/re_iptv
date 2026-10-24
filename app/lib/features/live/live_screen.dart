@@ -194,7 +194,10 @@ class _LiveBodyState extends State<_LiveBody> {
     if (!mounted) return;
     await getIt<ContentRepository>().markWatched(playlist, ContentKind.live, channel.streamId);
     if (!mounted) return;
-    context.read<ContentBloc>().add(const ContentReloaded());
+    // Watching only changes watch state; reloading the whole catalogue here
+    // re-read and re-decoded every channel and froze the list on large
+    // playlists.
+    context.read<ContentBloc>().add(const ContentWatchStateReloaded());
     setState(() => _startPreview(channel));
   }
 

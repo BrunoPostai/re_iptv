@@ -159,6 +159,16 @@ class ContentReloaded extends ContentEvent {
   const ContentReloaded();
 }
 
+/// Refreshes only the watch-state lists — favourites and continue-watching —
+/// without re-reading and re-decoding the whole catalogue.
+///
+/// Returning from the player only changes watch state, but [ContentReloaded]
+/// also re-parses every channel/movie/series, which freezes the UI for a moment
+/// on large playlists.
+class ContentWatchStateReloaded extends ContentEvent {
+  const ContentWatchStateReloaded();
+}
+
 class ContentProgressSaved extends ContentEvent {
   const ContentProgressSaved(this.progress);
   final WatchProgress progress;
@@ -175,6 +185,7 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
     on<ContentFavoriteToggled>(_onFavoriteToggled);
     on<ContentRefreshed>(_onRefreshed);
     on<ContentReloaded>(_onReloaded);
+    on<ContentWatchStateReloaded>(_onWatchStateReloaded);
     on<ContentProgressSaved>(_onProgressSaved);
   }
 
@@ -345,6 +356,20 @@ class ContentBloc extends Bloc<ContentEvent, ContentState> {
 
   Future<void> _onReloaded(ContentReloaded event, Emitter<ContentState> emit) async {
     await _load(state.kind, emit);
+  }
+
+  /// Picks up favourites/continue-watching changes without touching the
+  /// catalogue loaded in memory.
+  Future<void> _onWatchStateReloaded(
+      ContentWatchStateReloaded event, Emitter<ContentState> emit) async {
+    final playlist = _active;
+    if (playlist == null) return;
+    _favoriteIds = await _content.favorites(playlist, state.kind);
+    final progress = state.kind == ContentKind.live
+        ? const <WatchProgress>[]
+        : await _content.continueWatching(playlist, state.kind);
+    emit(state.copyWith(favorites: _favoriteIds.toSet(), progress: progress));
+    _emitFiltered(emit);
   }
 
   Future<void> _onProgressSaved(ContentProgressSaved event, Emitter<ContentState> emit) async {
