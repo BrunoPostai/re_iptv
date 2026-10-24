@@ -145,11 +145,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final settings = context.read<SettingsBloc>().state;
 
     return BlocProvider<PlayerBloc>(
-      create: (_) => PlayerBloc(
-        settings.subtitleSize,
-        volume: settings.volume,
-        title: getIt<AppConfig>().branding.windowTitle,
-      )..add(PlayerOpened(widget.item, startAt: widget.startAt)),
+      create: (_) {
+        final config = getIt<AppConfig>();
+        return PlayerBloc(
+          settings.subtitleSize,
+          volume: settings.volume,
+          title: config.branding.windowTitle,
+          hardwareDecoding: config.player.hardwareDecoding,
+          liveTuning: config.player.liveTuning,
+        )..add(PlayerOpened(widget.item, startAt: widget.startAt));
+      },
       child: Focus(
         autofocus: true,
         onKeyEvent: _onKey,

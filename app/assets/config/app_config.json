@@ -35,7 +35,15 @@
     "default_volume": 20,
     "hardware_decoding": true,
     "start_fullscreen": false,
-    "user_agent": "REIPTV/1.0"
+    "user_agent": "REIPTV/1.0",
+    "$comment": "live_tuning is opt-in: media_kit already sets hwdec, cache, cache-on-disk and a network timeout, and what fixes one provider can break another. cache_on_disk: null and user_agent: \"\" both mean 'leave the default alone'. See docs/PERSONALIZING.md.",
+    "live_tuning": {
+      "reconnect": false,
+      "reconnect_delay_max": 5,
+      "cache_on_disk": null,
+      "user_agent": "",
+      "properties": {}
+    }
   },
   "window": {
     "width": 1280,

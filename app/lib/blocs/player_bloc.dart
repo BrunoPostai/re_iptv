@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit/media_kit.dart' hide PlayerState;
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../core/config/app_config.dart';
+import '../core/player/mpv_tuning.dart';
 import '../data/models/models.dart';
 
 class PlayerState extends Equatable {
@@ -161,9 +163,19 @@ class PlayerStopped extends PlayerEvent {
 class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   /// [volume] is applied to every stream this bloc opens; opening live channels
   /// at libmpv's default of 100% is unpleasant, so callers pass a lower value.
-  PlayerBloc(int subtitleSize, {double volume = 20, String title = 'REIPTV'})
-      : _initialVolume = _clampVolume(volume),
+  ///
+  /// [hardwareDecoding] and [liveTuning] come straight from `app_config.json`;
+  /// see `core/player/mpv_tuning.dart` for what the tuning does.
+  PlayerBloc(
+    int subtitleSize, {
+    double volume = 20,
+    String title = 'REIPTV',
+    bool hardwareDecoding = true,
+    LiveTuning liveTuning = const LiveTuning(),
+  })  : _initialVolume = _clampVolume(volume),
         _title = title,
+        _hardwareDecoding = hardwareDecoding,
+        _liveTuning = liveTuning,
         super(PlayerState(subtitleSize: subtitleSize, volume: _clampVolume(volume))) {
     player = Player(
       configuration: PlayerConfiguration(
@@ -201,11 +213,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   /// Volume every stream opens at, and the media title reported to libmpv.
   final double _initialVolume;
   final String _title;
+  final bool _hardwareDecoding;
+  final LiveTuning _liveTuning;
 
   late final Player player;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
-  VideoController get controller => _controller ??= VideoController(player);
+  /// `media_kit_video` defaults `hwdec` to `auto`, and the config can turn it
+  /// off for machines where hardware decoding misbehaves.
+  VideoController get controller => _controller ??= VideoController(
+        player,
+        configuration: VideoControllerConfiguration(
+          hwdec: _hardwareDecoding ? 'auto' : 'no',
+        ),
+      );
   VideoController? _controller;
 
   static double _clampVolume(double value) => value.clamp(0, 100).toDouble();
@@ -225,6 +246,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     ));
     // Open at the configured volume instead of libmpv's default of 100%.
     await player.setVolume(_initialVolume);
+    // Stream options only apply to the connection made by open(), so they have
+    // to be in place before it.
+    if (event.item.isLive) {
+      await applyLiveTuning(player, _liveTuning);
+    }
     await player.open(Media(event.item.url), play: true);
     if (event.startAt > Duration.zero) {
       await player.seek(event.startAt);

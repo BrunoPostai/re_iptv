@@ -97,10 +97,13 @@ class _LiveBodyState extends State<_LiveBody> {
       return;
     }
     final settings = context.read<SettingsBloc>().state;
+    final config = getIt<AppConfig>();
     final bloc = _preview ??= PlayerBloc(
       settings.subtitleSize,
       volume: 0,
-      title: getIt<AppConfig>().branding.windowTitle,
+      title: config.branding.windowTitle,
+      hardwareDecoding: config.player.hardwareDecoding,
+      liveTuning: config.player.liveTuning,
     );
     _previewSequence++;
     bloc.add(PlayerOpened(MediaItem(

@@ -52,7 +52,7 @@ re_iptv/
 | Catch-up | archive channels, date + start-time + duration picker, timeshift playback |
 | Search | global, tabbed by live/movies/series |
 | Library state | favourites, watched, continue-watching, all stored per playlist |
-| Player | libmpv via `media_kit`: seek, volume, audio/subtitle track selection, fullscreen, window dragging while playing, keyboard shortcuts, resume position |
+| Player | libmpv via `media_kit`: seek, volume, audio/subtitle track selection, fullscreen, window dragging while playing, keyboard shortcuts, resume position, libmpv stats overlay (**I**) |
 | Settings | theme, language, stream format, subtitle size, playback volume, parental PIN, hide categories, cache control |
 | Shell | frameless window with custom title bar, clock, account expiry status |
 

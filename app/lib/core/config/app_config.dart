@@ -195,6 +195,9 @@ class PlayerDefaults {
   final bool startFullscreen;
   final String userAgent;
 
+  /// Provider-dependent libmpv tweaks for live streams. Off by default.
+  final LiveTuning liveTuning;
+
   const PlayerDefaults({
     this.streamFormat = 'default',
     this.subtitleSize = 20,
@@ -202,6 +205,7 @@ class PlayerDefaults {
     this.hardwareDecoding = true,
     this.startFullscreen = false,
     this.userAgent = 'VLC/3.0.20 LibVLC/3.0.20',
+    this.liveTuning = const LiveTuning(),
   });
 
   factory PlayerDefaults.fromJson(Map<String, dynamic> j) => PlayerDefaults(
@@ -211,6 +215,8 @@ class PlayerDefaults {
         hardwareDecoding: j['hardware_decoding'] as bool? ?? true,
         startFullscreen: j['start_fullscreen'] as bool? ?? false,
         userAgent: j['user_agent'] as String? ?? 'VLC/3.0.20 LibVLC/3.0.20',
+        liveTuning: LiveTuning.fromJson(
+            Map<String, dynamic>.from((j['live_tuning'] as Map?) ?? const {})),
       );
 
   Map<String, dynamic> toJson() => {
@@ -220,7 +226,71 @@ class PlayerDefaults {
         'hardware_decoding': hardwareDecoding,
         'start_fullscreen': startFullscreen,
         'user_agent': userAgent,
+        'live_tuning': liveTuning.toJson(),
       };
+}
+
+/// Opt-in libmpv settings for live streams.
+///
+/// `media_kit` already configures libmpv sensibly (`hwdec=auto`, `cache=yes`,
+/// a network timeout), so nothing here is applied unless it is switched on.
+/// Which of these help depends on the provider, and what helps one can hurt
+/// another — see `docs/PERSONALIZING.md`.
+class LiveTuning {
+  /// Whether to reconnect the stream when it drops mid-playback.
+  final bool reconnect;
+
+  /// Longest wait between reconnection attempts, in seconds.
+  final int reconnectDelayMax;
+
+  /// Keep the demuxer cache on disk rather than in memory.
+  ///
+  /// `null` leaves `media_kit`'s own value (`yes`) in place; some providers
+  /// stall while the cache is being written.
+  final bool? cacheOnDisk;
+
+  /// User agent sent for the stream itself (not for the API).
+  ///
+  /// Empty leaves libmpv's default (`Lavf/...`) alone. Providers that check the
+  /// user agent usually expect the same value as `player.user_agent`, which is
+  /// what the playlist requests already send.
+  final String userAgent;
+
+  /// Further libmpv options, applied verbatim as `"property": value`.
+  ///
+  /// An escape hatch for trying a provider-specific option without a rebuild.
+  final Map<String, String> properties;
+
+  const LiveTuning({
+    this.reconnect = false,
+    this.reconnectDelayMax = 5,
+    this.cacheOnDisk,
+    this.userAgent = '',
+    this.properties = const {},
+  });
+
+  factory LiveTuning.fromJson(Map<String, dynamic> j) => LiveTuning(
+        reconnect: j['reconnect'] as bool? ?? false,
+        reconnectDelayMax: (j['reconnect_delay_max'] as num?)?.toInt() ?? 5,
+        cacheOnDisk: j['cache_on_disk'] as bool?,
+        userAgent: j['user_agent'] as String? ?? '',
+        properties: {
+          for (final entry in ((j['properties'] as Map?) ?? const {}).entries)
+            '${entry.key}': '${entry.value}',
+        },
+      );
+
+  Map<String, dynamic> toJson() => {
+        'reconnect': reconnect,
+        'reconnect_delay_max': reconnectDelayMax,
+        if (cacheOnDisk != null) 'cache_on_disk': cacheOnDisk,
+        'user_agent': userAgent,
+        'properties': properties,
+      };
+
+  /// True when nothing would be applied, so callers can skip the work.
+  bool get isEmpty =>
+      !reconnect && cacheOnDisk == null && userAgent.isEmpty && properties.isEmpty;
 }
 
 class WindowSpec {

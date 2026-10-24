@@ -103,4 +103,44 @@ void main() {
       expect(config.window.titleBarStyle, 'normal');
     });
   });
+
+  group('LiveTuning', () {
+    test('is inert by default, so nothing is applied unless configured', () {
+      final tuning = LiveTuning.fromJson(const {});
+
+      expect(tuning.isEmpty, isTrue);
+      expect(tuning.cacheOnDisk, isNull);
+    });
+
+    test('reads the provider-specific switches', () {
+      final tuning = LiveTuning.fromJson(const {
+        'reconnect': true,
+        'reconnect_delay_max': 15,
+        'cache_on_disk': false,
+        'user_agent': 'REIPTV/1.0',
+        'properties': {'network-timeout': 15},
+      });
+
+      expect(tuning.reconnect, isTrue);
+      expect(tuning.reconnectDelayMax, 15);
+      expect(tuning.cacheOnDisk, isFalse);
+      expect(tuning.userAgent, 'REIPTV/1.0');
+      // Extra options are stringified, since that is what libmpv takes.
+      expect(tuning.properties, {'network-timeout': '15'});
+      expect(tuning.isEmpty, isFalse);
+    });
+
+    test('is read from the player block', () {
+      final config = AppConfig.fromJson(const {
+        'player': {
+          'hardware_decoding': false,
+          'live_tuning': {'reconnect': true},
+        },
+      });
+
+      expect(config.player.hardwareDecoding, isFalse);
+      expect(config.player.liveTuning.reconnect, isTrue);
+      expect(config.player.liveTuning.cacheOnDisk, isNull);
+    });
+  });
 }

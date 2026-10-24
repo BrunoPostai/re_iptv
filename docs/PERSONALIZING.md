@@ -92,7 +92,14 @@ used for selection and focus states. Themes are selectable at runtime from
     "default_volume": 20,         // 0-100; the volume streams open at
     "hardware_decoding": true,
     "start_fullscreen": false,
-    "user_agent": "REIPTV/1.0"
+    "user_agent": "REIPTV/1.0",   // sent with playlist/API requests
+    "live_tuning": {              // opt-in; see "Tuning live streams"
+      "reconnect": false,
+      "reconnect_delay_max": 5,
+      "cache_on_disk": null,
+      "user_agent": "",
+      "properties": {}
+    }
   }
 }
 ```
@@ -101,6 +108,28 @@ used for selection and focus states. Themes are selectable at runtime from
 **Volume** tile in Settings change it for the current session and for the next
 stream respectively. It defaults to 20 because opening live channels at full
 volume is unpleasant.
+
+`hardware_decoding` is passed to libmpv as `hwdec`. Leave it on unless a machine
+plays badly or crashes with the GPU decoder.
+
+### Tuning live streams
+
+`live_tuning` holds the settings that depend on your provider. `media_kit`
+already configures libmpv well — hardware decoding, a 32 MB demuxer cache kept
+on disk, and a network timeout — so nothing here is applied unless you switch it
+on, and what fixes one provider can break another. The player shows what libmpv
+is really doing (**I** toggles the stats read-out), which is the quickest way to
+tell a provider problem from a decoding one.
+
+| Key | Effect |
+| --- | --- |
+| `reconnect`, `reconnect_delay_max` | Re-open the HTTP stream when it drops, waiting at most this many seconds between attempts. Helps providers that cut long-running connections. |
+| `cache_on_disk` | `true`/`false` forces the demuxer cache to disk or to memory; `null` leaves `media_kit`'s choice alone. Some providers stall while the cache is written. |
+| `user_agent` | User agent sent for the **stream**. Empty leaves libmpv's default; set it to the same value as `player.user_agent` if your provider checks it. |
+| `properties` | Any other libmpv option, applied verbatim, e.g. `{ "network-timeout": "15" }`. |
+
+An option this libmpv build does not recognise is ignored, so a typo costs you
+nothing but the effect you were hoping for.
 
 ## Live preview
 
