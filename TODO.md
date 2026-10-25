@@ -620,6 +620,42 @@ as before.
 
 ---
 
+## 19. An error about a stream that recovered stayed on screen — `[~]`
+
+libmpv reports errors as it opens a stream, and `media_kit` turns its error-level
+log lines into `Player.stream.error`: a connection reset while the stream was being
+opened, a codec that would not start. Several of them are survivable — the stream
+goes on to play — and the player kept the message until something else was opened.
+A red box with libmpv's text therefore sat over video that was playing perfectly
+well, and only leaving the player or opening another stream took it down.
+
+**Fixed:** the message takes itself down. `_showErrorBriefly()` gives it
+`playerErrorVisible` (five seconds) and then clears it from the state, and
+`_clearErrorIfPlaying()` takes it down sooner when video is actually on screen —
+playing, and not waiting for data — because that is the contradiction: whatever was
+logged, this stream is playing. Opening a stream still clears it outright, an empty
+log line is no longer treated as a message (it showed as an empty red box), and the
+card fades out rather than blinking away, so the message leaving looks deliberate.
+
+Both places that showed it gain: the player's card, and the live preview, which
+chooses its offline card from `state.error` too — a stale error there kept *Nothing
+on air right now* over a preview that had started playing. A channel that really is
+off air is unchanged: the preview's own startup grace still marks it unavailable
+after twelve seconds.
+
+**To check:** force-start something while it is still loading. The red box should go
+five seconds later, or sooner if playback starts, and video that is playing should
+never have an error sitting over it.
+
+**Still open:** nothing — with one thing to be aware of. A stream that is genuinely
+dead goes quiet after those five seconds: the spinner, or a frozen frame, is all
+that is left in the player, because the message about it has gone. The live preview
+still shows its own card for a channel that never starts. If that turns out to be
+too little to go on, the player could carry an *unavailable* card of its own the way
+the preview does; the message is five seconds' worth of information either way.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

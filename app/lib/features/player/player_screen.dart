@@ -449,35 +449,45 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
                                   child: CircularProgressIndicator(strokeWidth: 3),
                                 ),
                               ),
-                            if (state.error != null)
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(18),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppColors.red),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.error_outline,
-                                          color: AppColors.red, size: 34),
-                                      const SizedBox(height: 8),
-                                      ConstrainedBox(
-                                        constraints:
-                                            const BoxConstraints(maxWidth: 520),
-                                        child: Text(
-                                          state.error!,
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(
-                                              color: Colors.white70, fontSize: 12),
+                            // Fades on the way out. The message takes itself down
+                            // (see `playerErrorVisible`) because libmpv logs some
+                            // of these for a stream that goes on to play, and an
+                            // error leaving should look deliberate rather than
+                            // like it was never there.
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              child: state.error == null
+                                  ? const SizedBox.shrink()
+                                  : Center(
+                                      key: const ValueKey('playback-error'),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(18),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.7),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: AppColors.red),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.error_outline,
+                                                color: AppColors.red, size: 34),
+                                            const SizedBox(height: 8),
+                                            ConstrainedBox(
+                                              constraints:
+                                                  const BoxConstraints(maxWidth: 520),
+                                              child: Text(
+                                                state.error!,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                    color: Colors.white70, fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                                    ),
+                            ),
                             AnimatedOpacity(
                               opacity: _overlayVisible ? 1 : 0,
                               duration: const Duration(milliseconds: 200),

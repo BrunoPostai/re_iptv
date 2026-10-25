@@ -95,6 +95,16 @@ const searchDebounce = Duration(milliseconds: 320);
 /// be behind where the viewer actually stopped.
 const progressSaveInterval = Duration(seconds: 10);
 
+/// How long libmpv's error message stays on screen before it takes itself down.
+///
+/// These are libmpv's own log lines — a connection reset while a stream was being
+/// opened, a codec that would not start — and several of them are survivable: the
+/// stream goes on to play. A message that stayed until something else was opened
+/// therefore sat over working video, which is how an error about a stream that had
+/// recovered looked permanent. Long enough to read, then out of the way; a stream
+/// that is actually playing takes it down sooner than this.
+const playerErrorVisible = Duration(seconds: 5);
+
 /// How long a channel's guide is remembered after a panel answered with no
 /// listings at all.
 ///

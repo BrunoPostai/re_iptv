@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart' hide PlayerState;
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../core/config/app_config.dart';
+import '../core/constants.dart';
 import '../core/player/mpv_tuning.dart';
 import '../data/models/models.dart';
 
@@ -212,10 +213,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     on<_Emit>((event, emit) => emit(event.state));
 
     _subscriptions.addAll([
-      player.stream.playing.listen((v) => add(_Emit(state.copyWith(playing: v)))),
+      player.stream.playing.listen((v) {
+        add(_Emit(state.copyWith(playing: v)));
+        if (v) _clearErrorIfPlaying();
+      }),
       player.stream.buffering.listen((v) {
         add(_Emit(state.copyWith(buffering: v)));
-        if (v) _checkEnded();
+        if (v) {
+          _checkEnded();
+        } else {
+          _clearErrorIfPlaying();
+        }
       }),
       player.stream.completed.listen((v) => add(_Emit(state.copyWith(
             completed: v,
@@ -237,7 +245,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
             subtitleTrack: v.subtitle,
             audioTrack: v.audio,
           )))),
-      player.stream.error.listen((v) => add(_Emit(state.copyWith(error: v)))),
+      player.stream.error.listen((v) {
+        // An empty log line is not a message: it would show as a red box with
+        // nothing in it.
+        final message = v.trim();
+        add(_Emit(state.copyWith(
+          error: message.isEmpty ? null : message,
+          clearError: message.isEmpty,
+        )));
+        if (message.isNotEmpty) _showErrorBriefly();
+      }),
     ]);
   }
 
@@ -253,6 +270,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
 
   /// The one-shot check armed once the demuxer has reported a duration.
   Timer? _resumeCheck;
+
+  /// Takes the error message down again after [playerErrorVisible].
+  Timer? _errorDismiss;
 
   late final Player player;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
@@ -270,6 +290,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   static double _clampVolume(double value) => value.clamp(0, 100).toDouble();
 
   Future<void> _onOpened(PlayerOpened event, Emitter<PlayerState> emit) async {
+    // A new stream has nothing to do with the last one's error message.
+    _errorDismiss?.cancel();
+    _errorDismiss = null;
     emit(state.copyWith(
       item: event.item,
       isLive: event.item.isLive,
@@ -319,6 +342,34 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     _resumeCheck?.cancel();
     _resumeCheck = null;
     await player.seek(event.position);
+  }
+
+  /// Shows an error for [playerErrorVisible], then takes it down.
+  ///
+  /// libmpv reports these as it opens a stream — a connection that was reset, a
+  /// codec that would not start — and some of them are survivable: the stream goes
+  /// on to play. Kept until the next stream was opened, a message about a stream
+  /// that recovered looked permanent, which is what an error over playing video
+  /// was.
+  void _showErrorBriefly() {
+    _errorDismiss?.cancel();
+    _errorDismiss = Timer(playerErrorVisible, () {
+      _errorDismiss = null;
+      if (state.error != null) add(_Emit(state.copyWith(clearError: true)));
+    });
+  }
+
+  /// Takes down an error the stream has recovered from.
+  ///
+  /// Video on screen is the contradiction: whatever libmpv logged, this stream is
+  /// playing.
+  void _clearErrorIfPlaying() {
+    if (state.error == null) return;
+    final live = player.state;
+    if (!live.playing || live.buffering) return;
+    _errorDismiss?.cancel();
+    _errorDismiss = null;
+    add(_Emit(state.copyWith(clearError: true)));
   }
 
   /// Notices the end of a stream that mpv never announced.
@@ -405,6 +456,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   @override
   Future<void> close() async {
     _resumeCheck?.cancel();
+    _errorDismiss?.cancel();
     for (final sub in _subscriptions) {
       await sub.cancel();
     }
