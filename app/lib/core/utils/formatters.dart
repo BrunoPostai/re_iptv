@@ -35,7 +35,11 @@ String twoDigits(int value) => value.toString().padLeft(2, '0');
 /// `re_iptv.exe` is only the C++ shell and keeps the date it was first built, so
 /// its timestamp says nothing about which version is running; every line of Dart
 /// ships in `data/app.so` next to it, and that file is rewritten by every build.
+/// That trick only applies to the Windows layout. Android and iOS fold the
+/// snapshot into the app binary, where the only nearby dates belong to the
+/// system, so they report no stamp rather than a misleading one.
 String buildStamp() {
+  if (!Platform.isWindows) return 'unknown';
   try {
     final exe = File(Platform.resolvedExecutable);
     final separator = Platform.pathSeparator;

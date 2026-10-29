@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/platform/platform_window.dart';
 import '../core/theme/app_theme.dart';
 
-/// Frameless window title bar (drag, minimise, maximise, close).
+/// Window title bar (drag, minimise, maximise, close).
+///
+/// On the desktop it *is* the window chrome; on mobile there is no window to
+/// drag, so it degrades to a plain header that keeps the back button, title and
+/// actions and pads itself under the status bar.
 class AppTitleBar extends StatefulWidget implements PreferredSizeWidget {
   const AppTitleBar({
     super.key,
@@ -35,18 +40,18 @@ class _AppTitleBarState extends State<AppTitleBar> with WindowListener {
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
+    PlatformWindow.addListener(this);
     _sync();
   }
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
+    PlatformWindow.removeListener(this);
     super.dispose();
   }
 
   Future<void> _sync() async {
-    final maximized = await windowManager.isMaximized();
+    final maximized = await PlatformWindow.isMaximized();
     if (mounted && maximized != _maximized) setState(() => _maximized = maximized);
   }
 
@@ -58,18 +63,16 @@ class _AppTitleBarState extends State<AppTitleBar> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
+    // The status bar overlaps the body on mobile, so the bar grows by that much
+    // and keeps its own content clear of it.
+    final topInset = PlatformWindow.isMobile ? MediaQuery.paddingOf(context).top : 0.0;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanStart: (_) => windowManager.startDragging(),
-      onDoubleTap: () async {
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
-        } else {
-          await windowManager.maximize();
-        }
-      },
+      onPanStart: (_) => PlatformWindow.startDragging(),
+      onDoubleTap: () => PlatformWindow.toggleMaximize(),
       child: Container(
-        height: 38,
+        height: 38 + topInset,
+        padding: EdgeInsets.only(top: topInset),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xF20A1A2E), Color(0xF20E2138)],
@@ -109,28 +112,24 @@ class _AppTitleBarState extends State<AppTitleBar> with WindowListener {
               ),
             ),
             ...widget.actions,
-            _BarButton(
-              icon: Icons.remove,
-              tooltip: 'Minimise',
-              onTap: windowManager.minimize,
-            ),
-            _BarButton(
-              icon: _maximized ? Icons.fullscreen_exit : Icons.fullscreen,
-              tooltip: _maximized ? 'Restore' : 'Maximise',
-              onTap: () async {
-                if (await windowManager.isMaximized()) {
-                  await windowManager.unmaximize();
-                } else {
-                  await windowManager.maximize();
-                }
-              },
-            ),
-            _BarButton(
-              icon: Icons.close,
-              tooltip: 'Close',
-              hoverColor: AppColors.red,
-              onTap: windowManager.close,
-            ),
+            if (PlatformWindow.isDesktop) ...[
+              _BarButton(
+                icon: Icons.remove,
+                tooltip: 'Minimise',
+                onTap: PlatformWindow.minimize,
+              ),
+              _BarButton(
+                icon: _maximized ? Icons.fullscreen_exit : Icons.fullscreen,
+                tooltip: _maximized ? 'Restore' : 'Maximise',
+                onTap: PlatformWindow.toggleMaximize,
+              ),
+              _BarButton(
+                icon: Icons.close,
+                tooltip: 'Close',
+                hoverColor: AppColors.red,
+                onTap: PlatformWindow.close,
+              ),
+            ],
             const SizedBox(width: 4),
           ],
         ),

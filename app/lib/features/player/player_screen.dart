@@ -12,6 +12,7 @@ import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/constants.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/platform_window.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
@@ -98,18 +99,19 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
+    PlatformWindow.addListener(this);
     // Closing the window destroys it without unmounting this route, so the
     // write queued by [dispose] never happens and the last ten seconds of a film
     // are lost. Holding the close here is what makes a resume land exactly.
-    windowManager.setPreventClose(true);
+    // (Desktop only: a mobile app is not closed by a window button.)
+    PlatformWindow.setPreventClose(true);
     _scheduleHide();
   }
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
-    windowManager.setPreventClose(false);
+    PlatformWindow.removeListener(this);
+    PlatformWindow.setPreventClose(false);
     _hideTimer?.cancel();
     _persistProgress();
     _bloc?.close();
@@ -127,8 +129,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
       // The position is up to ten seconds stale in the worst case; that is not
       // worth refusing to close over.
     }
-    await windowManager.setPreventClose(false);
-    await windowManager.destroy();
+    await PlatformWindow.setPreventClose(false);
+    await PlatformWindow.destroy();
   }
 
   void _scheduleHide() {
@@ -280,7 +282,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
 
   Future<void> _toggleFullscreen() async {
     _fullscreen = !_fullscreen;
-    await windowManager.setFullScreen(_fullscreen);
+    await PlatformWindow.setFullScreen(_fullscreen);
     if (mounted) setState(() {});
   }
 
@@ -428,14 +430,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
                               height: 34,
                               child: GestureDetector(
                                 behavior: HitTestBehavior.translucent,
-                                onPanStart: (_) => windowManager.startDragging(),
-                                onDoubleTap: () async {
-                                  if (await windowManager.isMaximized()) {
-                                    await windowManager.unmaximize();
-                                  } else {
-                                    await windowManager.maximize();
-                                  }
-                                },
+                                onPanStart: (_) => PlatformWindow.startDragging(),
+                                onDoubleTap: () => PlatformWindow.toggleMaximize(),
                               ),
                             ),
                             // A stream that has run out of file reports itself as
@@ -604,14 +600,8 @@ class _Overlay extends StatelessWidget {
           // The player route is frameless, so the overlay's top bar doubles as
           // the window's drag handle (and double-click still maximises).
           behavior: HitTestBehavior.opaque,
-          onPanStart: (_) => windowManager.startDragging(),
-          onDoubleTap: () async {
-            if (await windowManager.isMaximized()) {
-              await windowManager.unmaximize();
-            } else {
-              await windowManager.maximize();
-            }
-          },
+          onPanStart: (_) => PlatformWindow.startDragging(),
+          onDoubleTap: () => PlatformWindow.toggleMaximize(),
           child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -646,18 +636,21 @@ class _Overlay extends StatelessWidget {
               // own, so minimising and closing the app have to live here or not
               // at all — otherwise the only way out of a film is to leave it
               // first. Closing goes through the held close (§13), so the
-              // position is written before the window goes.
-              _WindowButton(
-                icon: Icons.remove,
-                tooltip: 'Minimise',
-                onTap: windowManager.minimize,
-              ),
-              _WindowButton(
-                icon: Icons.close,
-                tooltip: 'Close',
-                hoverColor: AppColors.red,
-                onTap: windowManager.close,
-              ),
+              // position is written before the window goes. Mobile has no such
+              // window, so these only appear on the desktop.
+              if (PlatformWindow.isDesktop) ...[
+                _WindowButton(
+                  icon: Icons.remove,
+                  tooltip: 'Minimise',
+                  onTap: PlatformWindow.minimize,
+                ),
+                _WindowButton(
+                  icon: Icons.close,
+                  tooltip: 'Close',
+                  hoverColor: AppColors.red,
+                  onTap: PlatformWindow.close,
+                ),
+              ],
             ],
           ),
         ),

@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/di/injector.dart';
+import 'core/platform/platform_window.dart';
 import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -14,7 +15,7 @@ Future<void> main() async {
   // libmpv / media_kit must be initialised before any player is created.
   MediaKit.ensureInitialized();
 
-  await windowManager.ensureInitialized();
+  await PlatformWindow.initialize();
 
   // Personal overrides live next to the app data, so a local build can be
   // customised without editing tracked files.
@@ -27,22 +28,22 @@ Future<void> main() async {
 
   final config = await AppConfig.load();
 
-  final windowOptions = WindowOptions(
-    size: Size(config.window.width.toDouble(), config.window.height.toDouble()),
-    minimumSize: Size(config.window.minWidth.toDouble(), config.window.minHeight.toDouble()),
-    center: true,
-    title: config.branding.windowTitle,
-    backgroundColor: AppTheme.windowBackground,
-    titleBarStyle: config.window.titleBarStyle == 'custom'
-        ? TitleBarStyle.hidden
-        : TitleBarStyle.normal,
-    windowButtonVisibility: config.window.titleBarStyle != 'custom',
-  );
-
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
+  // Window sizing is a desktop concern; on a phone the app fills the display.
+  if (PlatformWindow.isDesktop) {
+    await PlatformWindow.show(
+      WindowOptions(
+        size: Size(config.window.width.toDouble(), config.window.height.toDouble()),
+        minimumSize: Size(config.window.minWidth.toDouble(), config.window.minHeight.toDouble()),
+        center: true,
+        title: config.branding.windowTitle,
+        backgroundColor: AppTheme.windowBackground,
+        titleBarStyle: config.window.titleBarStyle == 'custom'
+            ? TitleBarStyle.hidden
+            : TitleBarStyle.normal,
+        windowButtonVisibility: config.window.titleBarStyle != 'custom',
+      ),
+    );
+  }
 
   await configureDependencies(config);
 
