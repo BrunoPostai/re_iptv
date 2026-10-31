@@ -707,7 +707,7 @@ second skips stand in for the arrow keys where there is no keyboard. The keys st
 work; the two share one `_seekBy` so they cannot drift apart.
 
 Setting any of this up was its own afternoon: JDK 17 and the SDK live outside the
-project — `C:\Users\you\Android\jdk17` and `C:\Users\you\Android\sdk`, both
+project — `%USERPROFILE%\Android\jdk17` and `%USERPROFILE%\Android\sdk`, both
 pointed at by `flutter config` — and the build wants an NDK that the toolchain does
 not fetch for itself, so `ndk;28.2.13676358` was installed by hand. None of that
 belongs in the repository, which is why it is written down here.
@@ -753,12 +753,12 @@ because the port was what had changed.
 
 It was not the port. The content cache pulled off the phone
 (`run-as com.reiptv.re_iptv cat files/localData/re-iptv-<id>.hive`) holds 84,084
-image URLs and every one of them is on `cdn.invalid`, which answers Cloudflare's `403`
-"Attention Required!" page — to the phone, to a desktop Chrome user agent, to VLC's,
-to a Dalvik one. It refuses everyone, so the desktop had been showing the same letters.
-The same ids are served by the panel itself: `https://panel.invalid/logo/53084.jpg`
-is `200 image/jpeg`, 17 KB, the Digimon logo. The playlist data names a host the
-provider has left behind, and nothing on our side can fix that but ignore it.
+image URLs and every one of them points at a single CDN host that answers
+Cloudflare's `403` "Attention Required!" page — to the phone, to a desktop Chrome user
+agent, to VLC's, to a Dalvik one. It refuses everyone, so the desktop had been showing
+the same letters. The same ids are served, `200 image/jpeg`, by the panel itself, at
+`/logo/<id>.jpg`: the playlist data names a host the provider has left behind, and
+nothing on our side can fix that but ignore it.
 
 **Done:** `Artwork` remembers the panel the active playlist talks to — set when a
 playlist is made active, and again on every source lookup, because the first frame can

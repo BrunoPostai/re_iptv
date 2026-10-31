@@ -1,18 +1,27 @@
 # re_iptv
 
-A clean-room, cross-platform **IPTV player client** built with Flutter, supporting
+A cross-platform **IPTV player client** built with Flutter, supporting
 **Xtream Codes** and **M3U/M3U8** playlists: live TV, movies, series, catch-up,
 search, favourites, continue-watching, parental control and a libmpv-based player.
 
-The UI is a faithful *recreation* of the layout and behaviour of a well-known
-Windows IPTV desktop client, rebuilt from scratch with **neutral placeholder
-branding** — no vendor artwork, names or content is included.
+The interface follows what desktop IPTV clients do with that shape of data — a
+channel list beside the player, a guide, a details pane — with **neutral
+placeholder branding**: no vendor artwork, names or content is included anywhere.
 
 > **Legal / ethics.** This repository contains no playlists, credentials, channels,
 > movies, series or vendor assets. The application is a general-purpose media
 > player; you supply your own playlist and are responsible for having the right to
-> access it. The reverse-engineering notes in [`docs/analysis`](docs/analysis) are
-> recorded for interoperability and educational purposes only.
+> access it.
+
+> **Provenance.** The Xtream Codes surface was documented by observing a
+> third-party client: its network traffic, its string table and the data it stores
+> on disk, all recorded in [`docs/analysis`](docs/analysis). No decompiled source
+> is reproduced here — the Dart in this repository was written from those notes,
+> and the protocol itself is a published de facto standard shared by dozens of
+> independent clients.
+
+What is inside a built binary, and under which licence, is in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Download
 
