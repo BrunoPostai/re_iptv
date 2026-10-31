@@ -14,6 +14,26 @@ branding** — no vendor artwork, names or content is included.
 > access it. The reverse-engineering notes in [`docs/analysis`](docs/analysis) are
 > recorded for interoperability and educational purposes only.
 
+## Download
+
+Built binaries live on the [latest release](../../releases/latest) rather than in
+the repository, which would carry a few hundred megabytes per version in its git
+history for good:
+
+| File | For |
+|---|---|
+| `re_iptv-<version>-windows-x64-setup.exe` | Windows 10/11 — installs per user, with shortcuts and an uninstaller |
+| `re_iptv-<version>-windows-x64.zip` | Windows without installing: unzip and run `re_iptv.exe` |
+| `re_iptv-<version>-universal.apk` | any Android phone |
+| `re_iptv-<version>-arm64.apk` | recent phones; the same app, ~36 MB lighter |
+
+This repository is private, so that link only works for people who have been given
+access to it. Neither build is code-signed: Windows says *"Windows protected your
+PC"* (*More info → Run anyway*) and Android's Play Protect asks to install anyway.
+
+Building from source is under [Building (Windows)](#building-windows),
+[Building (Android)](#building-android) and [Building (iOS)](#building-ios).
+
 ---
 
 ## Repository layout
@@ -121,6 +141,10 @@ Uninstalling leaves playlists and settings alone: they live in
 
 Neither the app nor the installer is code-signed, so both raise SmartScreen on a
 machine that has not seen them before.
+
+Built files are attached to a [release](../../releases/latest) rather than
+committed, so that is where the current `setup.exe` and zip are to be found; the
+commands above are for building them again.
 
 ## Building (Android)
 
