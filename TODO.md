@@ -1005,6 +1005,45 @@ differ from the one an unsigned `re_iptv.exe` gets.
 
 ---
 
+## 30. A release build that cannot be signed now stops, and the key has a second home — `[x]`
+
+`key.properties` is gitignored, which is right — it holds the store and key passwords —
+but it also means the file never travels. It existed in exactly one place, the throwaway
+worktree where the Android work happened, and not in the checkout at
+`Documents\dev\re_iptv`. A release build from there would not have complained: Gradle
+fell back to the debug key, produced an APK, and left the consequences for the phone to
+discover. Android identifies an app by its signing key, not its package name, so that APK
+installs on a fresh device and is refused as an update — `INSTALL_FAILED_UPDATE_INCOMPATIBLE`
+— on every device that has the app. Fixing it means uninstalling first, which takes the
+playlist, the favourites, continue-watching and the cached guide with it, for every phone
+the APK reached. There is no Play App Signing to reset an upload key against, because the
+app has never been on Play.
+
+**Done:** `key.properties` is back in the checkout, and the canonical copy lives in
+`Documents\keystores\re_iptv` beside the `.jks`, with a README that says what the two
+files are, prints the certificate fingerprint, and spells out the uninstall cost of
+losing them. That folder is mirrored to OneDrive, and the mirror was verified rather than
+assumed: `keytool -list` against the *copied* keystore, using the password out of the
+*copied* `key.properties`, returns `re_iptv` and the same SHA-256 the phone is running.
+The key is valid until 2054, so expiry is not the risk; the single copy was.
+
+`android/app/build.gradle.kts` no longer makes the choice silently. It still configures
+a debug signing config when the file is absent, because the release build type has to
+configure either way, but `gradle.taskGraph.whenReady` refuses any `assemble*Release` or
+`bundle*Release` with a message naming the `.example` and the reason. `flutter run` and
+debug builds are untouched, and `-PreiptvAllowDebugSigning=true` produces the old
+behaviour on purpose. Verified both ways here: with the file moved aside the release
+build stopped in one second with the message and nothing compiled; with it in place an
+arm64 release APK built and `apksigner verify --print-certs` reports
+`96:FD:5A:4D:…:F5:90`, the key the installed app carries.
+
+**To check:** the second-machine story, end to end — a fresh clone with no
+`key.properties`, a debug build that works, a release build that refuses, and the four
+lines copied from the keystore folder making it work again; and the escape hatch, which
+is documented but was not exercised.
+
+---
+
 ## Backlog
 
 - Android still uses the launcher icon `flutter create` made: Flutter's logo, on the

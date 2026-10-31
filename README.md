@@ -178,10 +178,18 @@ build.
 
 Release builds read `android/key.properties` (gitignored, as is the keystore it
 points at); copy [`app/android/key.properties.example`](app/android/key.properties.example)
-and fill it in. A checkout without that file still builds, signing with the debug
-key, which is fine for your own phone and useless for anyone else's: a debug
-keystore lives on one machine, so the next build from another machine cannot be
-installed over it.
+and fill it in. It is four lines — `storeFile`, `storePassword`, `keyAlias`,
+`keyPassword` — and `storeFile` is an absolute path, so the same file works from
+any checkout on the machine that holds the key.
+
+Because it is gitignored it does not travel with a clone: a second checkout has no
+copy until someone puts one there. A **release** build from a checkout without it
+now stops, naming the file, instead of quietly signing with the debug key — that
+APK installs happily on a fresh phone and is then refused as an update
+(`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) by every phone that already has the app,
+because Android treats the signing key, not the package name, as the app's
+identity. Debug builds and `flutter run` are unaffected;
+`-PreiptvAllowDebugSigning=true` restores the old behaviour deliberately.
 
 Generate the key once, keep it out of the repository, and keep a copy somewhere
 you would keep a passport:
@@ -191,8 +199,10 @@ keytool -genkeypair -v -keystore re_iptv-release.jks -storetype PKCS12 `
         -keyalg RSA -keysize 2048 -validity 10000 -alias re_iptv
 ```
 
-Losing it means every phone must uninstall the app — and its saved playlists —
-before the next build can be installed.
+Losing the keystore, or its password, means every phone must uninstall the app —
+and its saved playlists — before the next build can be installed. Losing
+`key.properties` alone means nothing: it is a pointer, and the passwords are the
+only part of it that is not written down anywhere else.
 
 ## Building (iOS)
 
