@@ -157,36 +157,78 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                               children: [
                                 AspectRatio(
                                   aspectRatio: 2 / 3,
-                                  child: SmartImage(
-                                    path: _movie.icon,
-                                    fallbackText: _movie.name,
-                                    showBorder: true,
-                                    borderRadius: 8,
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: SmartImage(
+                                          path: _movie.icon,
+                                          fallbackText: _movie.name,
+                                          showBorder: true,
+                                          borderRadius: 8,
+                                        ),
+                                      ),
+                                      // A 120 pixel column cannot hold a button
+                                      // and a heart side by side without the
+                                      // button's own label wrapping, so on a
+                                      // phone the heart moves onto the corner
+                                      // of the poster.
+                                      if (compact)
+                                        Positioned(
+                                          right: 6,
+                                          top: 6,
+                                          child: GestureDetector(
+                                            onTap: _toggleFavorite,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(5),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.55),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                _favorite ? Icons.favorite : Icons.favorite_border,
+                                                size: 16,
+                                                color: _favorite ? AppColors.red : Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 14),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: AccentButton(
-                                        label: 'Play',
-                                        icon: Icons.play_arrow,
-                                        onPressed: _play,
-                                      ),
+                                if (compact)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: AccentButton(
+                                      label: 'Play',
+                                      icon: Icons.play_arrow,
+                                      compact: true,
+                                      onPressed: _play,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Tooltip(
-                                      message: _favorite ? 'Remove from favourites' : 'Add to favourites',
-                                      child: IconButton(
-                                        onPressed: _toggleFavorite,
-                                        icon: Icon(
-                                          _favorite ? Icons.favorite : Icons.favorite_border,
-                                          color: _favorite ? AppColors.red : AppColors.textMuted,
+                                  )
+                                else
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: AccentButton(
+                                          label: 'Play',
+                                          icon: Icons.play_arrow,
+                                          onPressed: _play,
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
+                                      const SizedBox(width: 8),
+                                      Tooltip(
+                                        message: _favorite ? 'Remove from favourites' : 'Add to favourites',
+                                        child: IconButton(
+                                          onPressed: _toggleFavorite,
+                                          icon: Icon(
+                                            _favorite ? Icons.favorite : Icons.favorite_border,
+                                            color: _favorite ? AppColors.red : AppColors.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
                           ),

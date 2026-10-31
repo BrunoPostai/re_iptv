@@ -6,6 +6,7 @@ import '../../blocs/playlist_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
@@ -22,6 +23,9 @@ class PlaylistScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final config = getIt<AppConfig>();
     final settings = context.watch<SettingsBloc>().state;
+    // The account panel is as wide as a phone, so on one it stacks under the
+    // list instead of taking the width the list needs.
+    final compact = WindowClass.of(context).isCompact;
 
     return Scaffold(
       body: AppBackground(
@@ -51,34 +55,64 @@ class PlaylistScreen extends StatelessWidget {
                       ),
                     ),
                     Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: state.playlists.isEmpty
-                                ? const EmptyBlock(
-                                    message: 'No playlists yet. Add an Xtream or M3U playlist.',
-                                    icon: Icons.playlist_add,
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.all(16),
-                                    itemCount: state.playlists.length,
-                                    itemBuilder: (context, index) {
-                                      final playlist = state.playlists[index];
-                                      return _PlaylistCard(
+                      // The account panel is 360 pixels wide, which on a phone
+                      // is the whole screen and leaves the playlist list a
+                      // stripe: compact puts the panel under the list instead
+                      // of beside it.
+                      child: compact
+                          ? SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (state.playlists.isEmpty)
+                                    const EmptyBlock(
+                                      message: 'No playlists yet. Add an Xtream or M3U playlist.',
+                                      icon: Icons.playlist_add,
+                                    )
+                                  else
+                                    for (final playlist in state.playlists)
+                                      _PlaylistCard(
                                         playlist: playlist,
                                         active: playlist.id == state.active?.id,
                                         onSelect: () => context
                                             .read<PlaylistBloc>()
                                             .add(PlaylistSelected(playlist.id)),
                                         onRemove: () => _removePlaylist(context, playlist),
-                                      );
-                                    },
-                                  ),
-                          ),
-                          _AccountPanel(state: state),
-                        ],
-                      ),
+                                      ),
+                                  const SizedBox(height: 16),
+                                  _AccountPanel(state: state, compact: true),
+                                ],
+                              ),
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: state.playlists.isEmpty
+                                      ? const EmptyBlock(
+                                          message: 'No playlists yet. Add an Xtream or M3U playlist.',
+                                          icon: Icons.playlist_add,
+                                        )
+                                      : ListView.builder(
+                                          padding: const EdgeInsets.all(16),
+                                          itemCount: state.playlists.length,
+                                          itemBuilder: (context, index) {
+                                            final playlist = state.playlists[index];
+                                            return _PlaylistCard(
+                                              playlist: playlist,
+                                              active: playlist.id == state.active?.id,
+                                              onSelect: () => context
+                                                  .read<PlaylistBloc>()
+                                                  .add(PlaylistSelected(playlist.id)),
+                                              onRemove: () => _removePlaylist(context, playlist),
+                                            );
+                                          },
+                                        ),
+                                ),
+                                _AccountPanel(state: state),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -238,9 +272,13 @@ class _PlaylistCardState extends State<_PlaylistCard> {
 }
 
 class _AccountPanel extends StatelessWidget {
-  const _AccountPanel({required this.state});
+  const _AccountPanel({required this.state, this.compact = false});
 
   final PlaylistState state;
+
+  /// Drawn under the playlist list rather than beside it, at the width the
+  /// screen gives it.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -249,17 +287,9 @@ class _AccountPanel extends StatelessWidget {
     final settings = context.watch<SettingsBloc>().state;
     final auth = state.auth;
 
-    return Container(
-      width: 360,
-      decoration: BoxDecoration(
-        color: palette.sidebar,
-        border: Border(left: BorderSide(color: AppColors.divider)),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
             Text(
               'DEVICE',
               style: TextStyle(
@@ -353,9 +383,30 @@ class _AccountPanel extends StatelessWidget {
               'Disconnect all playlists  ·  ${settings.l10n.t('profile_settings')}',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
             ),
-          ],
+      ],
+    );
+
+    if (compact) {
+      // The page already scrolls, so the panel comes as a plain block with a
+      // rule above it rather than a second scroll view inside the first.
+      return Container(
+        decoration: BoxDecoration(
+          color: palette.sidebar,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.divider),
         ),
+        padding: const EdgeInsets.all(18),
+        child: body,
+      );
+    }
+
+    return Container(
+      width: 360,
+      decoration: BoxDecoration(
+        color: palette.sidebar,
+        border: Border(left: BorderSide(color: AppColors.divider)),
       ),
+      child: SingleChildScrollView(padding: const EdgeInsets.all(18), child: body),
     );
   }
 }

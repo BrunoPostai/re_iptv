@@ -863,6 +863,30 @@ dark halo, on the home screen, the boot screen, and every title bar.
 
 ---
 
+## 26. The detail page and the playlist screen, opened on a phone — `[x]`
+
+Two screens had not been opened on the phone before, and both had a desktop column
+that a phone cannot hold.
+
+The movie detail puts the poster in a 120 pixel column with the Play button and the
+favourite heart side by side under it, which leaves the button about sixty pixels of
+label: "Play" wrapped one letter per line inside a tall blue box. Compact now moves the
+heart onto the corner of the poster, the way the grid cards already do, and the button
+takes the whole column.
+
+The playlist screen gives the account panel a fixed 360 pixels beside the list. On a
+phone that panel is the screen, so the playlists were a stripe on the left with a
+scrollbar and nothing else. Compact stacks them: the cards first at full width, then
+the panel as a bordered block under them, inside the one scroll view rather than a
+second one inside the first.
+
+**To check:** on the phone, a movie's Play button should be a wide button under the
+poster with the heart on the poster itself, and Change Playlist should show every
+playlist in full with the device and account details below them. On the desktop both
+should be exactly as they were.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card
