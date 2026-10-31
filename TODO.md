@@ -969,12 +969,48 @@ underneath the existing platforms), and `app/.metadata` taught about the new pla
 
 ---
 
+## 29. Windows can be installed, not just unzipped — `[x]`
+
+Handing the desktop build to anyone meant handing them a git URL and a toolchain they
+do not have, or zipping the 43 files of `build\windows\x64\runner\Release` and hoping
+they double-click the right one. There was also the icon: the Windows build still wore
+Flutter's, so the taskbar, the Start Menu and the installer would all have shown a blue
+flame.
+
+**Done:** the Windows icon is now the app's own. `tools/make_app_icons.py` writes
+`app/windows/runner/resources/app_icon.ico` as nine separately drawn sizes — 16 through
+256 — because one image shrunk to 16 px turns the word mark into three gold smudges,
+so below 48 px the icon is the play mark alone. `make_branding.make_logo` gained the
+`full_bleed` and `wordmark` switches that draw it, and the icon is square-cornered so
+Windows masks it rather than the plate rounding it twice.
+
+`tools/build_windows_installer.ps1` builds the app, reads the version out of
+`app/pubspec.yaml`, caches Microsoft's C++ runtime in `dist\cache` and compiles
+`tools/windows_installer.iss` with Inno Setup 6 into
+`dist\re_iptv-<version>-windows-x64-setup.exe` (47 MB, the runtime is most of it).
+Per-user by default, so no administrator; Start Menu shortcut, optional desktop one,
+an *Apps & features* entry, and a quiet C++ runtime install on a machine that has never
+had one, which is otherwise the "VCRUNTIME140.dll was not found" dead end.
+
+Verified end to end on this machine: silent install, shortcuts and registry entry
+present, the installed copy launches (window titled `REIPTV`), silent uninstall leaves
+no directory, no shortcuts and no entry behind — and leaves
+`%APPDATA%\com.reiptv\re_iptv` alone, so a reinstall keeps the playlist.
+
+**To check:** a machine with no C++ runtime at all, which is the only path the bundled
+`VC_redist` covers and the one thing that cannot be tested here without breaking this
+machine; an upgrade from 1.0.4 to the next version landing in the same folder with the
+playlist intact; and the SmartScreen wording for an unsigned `setup.exe`, which will
+differ from the one an unsigned `re_iptv.exe` gets.
+
+---
+
 ## Backlog
 
 - Android still uses the launcher icon `flutter create` made: Flutter's logo, on the
-  home screen and in the app drawer. iOS now has a proper one (`tools/make_app_icons.py`);
-  Android needs an adaptive icon (`mipmap-anydpi-v26` with foreground and background
-  layers) rather than a flat bitmap, or the mark is clipped by whatever shape the
-  launcher masks it to.
+  home screen and in the app drawer. Windows and iOS now have proper ones
+  (`tools/make_app_icons.py`); Android needs an adaptive icon (`mipmap-anydpi-v26` with
+  foreground and background layers) rather than a flat bitmap, or the mark is clipped
+  by whatever shape the launcher masks it to.
 - Preview: optional custom "offline" image via `branding`, if the built-in card
   is not wanted.

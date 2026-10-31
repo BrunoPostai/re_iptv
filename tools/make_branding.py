@@ -134,7 +134,7 @@ def make_background(path, inner, outer, dots, spacing=15, alpha=110, dot_colour=
     print("wrote", path)
 
 
-def make_logo(path, size, full_bleed=False):
+def make_logo(path, size, full_bleed=False, wordmark=True):
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     pad = 0 if full_bleed else int(size * 0.06)
@@ -160,25 +160,29 @@ def make_logo(path, size, full_bleed=False):
     image = Image.alpha_composite(image, plate)
     draw = ImageDraw.Draw(image)
 
-    # Play triangle.
-    cx, cy = size / 2.0, size * 0.47
-    tri = size * 0.20
+    # Play triangle. Without a word mark underneath there is nothing to balance
+    # against, so it sits in the middle and grows into the space.
+    cx = size / 2.0
+    cy = size * (0.47 if wordmark else 0.52)
+    tri = size * (0.20 if wordmark else 0.26)
     draw.polygon(
         [(cx - tri * 0.75, cy - tri), (cx - tri * 0.75, cy + tri), (cx + tri * 0.95, cy)],
         fill=(255, 255, 255, 255),
     )
 
-    # Word mark.
-    text = WORDMARK
-    font = _font(int(size * 0.15))
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    draw.text(
-        ((size - tw) / 2.0, size * 0.74),
-        text,
-        font=font,
-        fill=GOLD + (255,),
-    )
+    # Word mark. It is legible down to about 32 px; below that it is three gold
+    # smudges, so the Windows icon set drops it and keeps the play mark.
+    if wordmark:
+        text = WORDMARK
+        font = _font(int(size * 0.15))
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        draw.text(
+            ((size - tw) / 2.0, size * 0.74),
+            text,
+            font=font,
+            fill=GOLD + (255,),
+        )
     image.save(path, "PNG")
     print("wrote", path)
 

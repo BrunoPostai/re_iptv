@@ -14,7 +14,8 @@ flutter build apk --release         # -> build\app\outputs\flutter-apk\app-relea
 ```
 
 The iOS target only builds on macOS with Xcode; the root README says what it
-needs and what has not been tried yet.
+needs and what has not been tried yet. For a Windows folder someone else can run,
+or a `setup.exe`, see *Packaging (Windows)* there too.
 
 On a machine without Developer Mode, create the Windows plugin links as junctions
 first:

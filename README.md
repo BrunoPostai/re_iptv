@@ -91,6 +91,37 @@ flutter test           # models, config merge, Xtream/M3U parsing, URL builders
 The demo/registration-free build starts with an empty playlist list — add your own
 through **Change Playlist → Add Playlist**.
 
+### Packaging (Windows)
+
+`build\windows\x64\runner\Release\` is a complete, self-contained program: 43
+files, ~78 MB, and the machine that runs it needs neither Flutter nor this
+repository. Zipping that folder is enough to hand it to someone — unzip,
+double-click `re_iptv.exe`, *More info → Run anyway* at the SmartScreen warning
+it gets for being unsigned.
+
+For something that behaves like a program rather than a folder:
+
+```powershell
+winget install JRSoftware.InnoSetup                       # once
+powershell -ExecutionPolicy Bypass -File tools\build_windows_installer.ps1
+# -> dist\re_iptv-<version>-windows-x64-setup.exe
+```
+
+The script builds the app, reads the version out of `app/pubspec.yaml`, and
+packages it with [`tools/windows_installer.iss`](tools/windows_installer.iss).
+`dist/` is gitignored, as build output should be.
+
+The installer is per-user by default — no administrator, no UAC prompt, installs
+into `%LOCALAPPDATA%\Programs\REIPTV` — with a Start Menu shortcut, an optional
+desktop one, and an entry in *Apps & features* so it can be uninstalled. It also
+carries Microsoft's C++ runtime and installs it quietly if the machine has never
+had it, which is otherwise the *"VCRUNTIME140.dll was not found"* support call.
+Uninstalling leaves playlists and settings alone: they live in
+`%APPDATA%\com.reiptv\re_iptv`.
+
+Neither the app nor the installer is code-signed, so both raise SmartScreen on a
+machine that has not seen them before.
+
 ## Building (Android)
 
 Requirements: Flutter stable, the Android SDK, and a JDK 17 — `flutter doctor`
@@ -195,6 +226,7 @@ Out of the box the app calls itself **REIPTV** — set `branding.app_name` and
 | `flutter analyze` | clean |
 | Tests | 85 passing (models, EPG parsing, config merge, Xtream/M3U parsing, URL builders, auth, layout breakpoints) |
 | Windows release build | succeeds |
+| Windows installer | builds, installs and uninstalls cleanly (Inno Setup, per-user, verified on this machine) |
 | Android release build | succeeds; signed with the release key, running on a phone (Android 16) |
 | iOS | target written (`app/ios/`), never compiled — no Mac here |
 | End-to-end playback on a live provider | needs your playlist — not part of the automated checks |
