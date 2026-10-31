@@ -656,6 +656,48 @@ the preview does; the message is five seconds' worth of information either way.
 
 ---
 
+## 20. Android is a platform now, and the live screen fits a phone — `[~]`
+
+The app could only be a Windows program, in the way that matters: `main.dart` called
+`windowManager.ensureInitialized()` and `waitUntilReadyToShow()` before the first
+frame, the title bar asked `isMaximized()` of it, and the player called
+`setPreventClose(true)` as it opened. `window_manager` publishes no Android
+implementation, so on a phone the first of those threw `MissingPluginException` and
+the app ended before it drew anything.
+
+**Done:** `PlatformWindow` is the single place that touches it, and everything else
+asks it the one question — is there a window. The startup sequence sizes and shows
+one on the desktop only; the title bar keeps back, title and actions, drops minimise,
+maximise and close, and grows by the status bar inset the body was ignoring; the
+player's fullscreen hides the system bars instead of resizing a window; holding a
+close open while progress is written stays a desktop behaviour, since a phone is not
+closed by a window button. `buildStamp()` reports `unknown` off Windows rather than
+dating the build by the phone's own files.
+
+The screens are the second half. `WindowClass` splits widths into compact below 600,
+medium below 1024 and expanded above it, so the desktop — never narrower than
+`window.min_width` 1024 — keeps the layout it had. The live screen is the first to
+use it: on a phone the 250 pixel category sidebar becomes a drawer and the 320 pixel
+details panel becomes the page, with back returning to the list, and the
+heading/search/sort row stacks because a 250 pixel search box does not share a 360
+pixel line. The details panel and the sidebar take a width now instead of
+hard-coding one, which is what lets the same widget be a column on the desktop and a
+page here.
+
+**To check:** on a phone the live screen should show the channel list with no
+overflow banner, a categories button in the title bar, and a tap on a channel should
+open its preview, guide and Watch button with back returning to the list. Windows
+should be untouched: three panes, the same title bar, the same fullscreen.
+
+**Still open:** every other screen is still desktop-sized and will overflow — settings
+has blocks fixed at 560, 460 and 420, search has a 420 pixel field, the splash has a
+430 pixel column, and the movie and series pages put a 250 pixel poster beside their
+text. The player still assumes a keyboard: no tap zones for seeking, and no touch
+equivalent of space, F, I and Esc. Neither an APK nor an iOS build has happened yet;
+no Android SDK is installed on this machine, and iOS needs a Mac.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

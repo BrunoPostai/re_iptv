@@ -12,6 +12,7 @@ class CategorySidebar extends StatefulWidget {
     required this.onSelected,
     this.isHidden,
     this.header,
+    this.width = 250,
   });
 
   final List<CategoryRow> rows;
@@ -19,6 +20,10 @@ class CategorySidebar extends StatefulWidget {
   final ValueChanged<String> onSelected;
   final bool Function(String id)? isHidden;
   final Widget? header;
+
+  /// Fixed beside the channel list; pass [double.infinity] inside a drawer,
+  /// where the drawer sets the width.
+  final double width;
 
   @override
   State<CategorySidebar> createState() => _CategorySidebarState();
@@ -36,7 +41,7 @@ class _CategorySidebarState extends State<CategorySidebar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 250,
+      width: widget.width,
       decoration: const BoxDecoration(
         color: AppColors.sidebar,
         border: Border(right: BorderSide(color: AppColors.divider)),

@@ -11,6 +11,7 @@ import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/constants.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
@@ -54,6 +55,10 @@ class _LiveBodyState extends State<_LiveBody> {
   Channel? _selected;
   List<EpgProgram> _epg = const [];
   bool _loadingEpg = false;
+
+  /// Opens the category drawer, which only exists when there is no room for a
+  /// sidebar beside the list.
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// Inline preview of the selected channel.
   ///
@@ -239,84 +244,186 @@ class _LiveBodyState extends State<_LiveBody> {
   Widget build(BuildContext context) {
     final config = getIt<AppConfig>();
     final settings = context.watch<SettingsBloc>().state;
+    final compact = WindowClass.of(context).isCompact;
 
-    return Scaffold(
-      body: AppBackground(
-        image: settings.theme.background,
-        child: Column(
-          children: [
-            AppTitleBar(
-              title: config.branding.windowTitle,
-              logo: config.branding.logoSmall,
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: BlocBuilder<PlaylistBloc, PlaylistState>(
-                      builder: (context, playlistState) => ScreenHeading(
-                        title: 'Live Channels',
-                        subtitle: playlistState.active?.name,
+    // A phone gets one pane at a time: the category sidebar becomes a drawer
+    // and the details panel becomes the page itself, so a channel is picked,
+    // read and then watched. The desktop keeps its three panes side by side.
+    final heading = BlocBuilder<PlaylistBloc, PlaylistState>(
+      builder: (context, playlistState) => ScreenHeading(
+        title: 'Live Channels',
+        subtitle: playlistState.active?.name,
+      ),
+    );
+    final search = SearchField(
+      width: compact ? double.infinity : 250,
+      hint: settings.l10n.t('search_hint'),
+      onChanged: (value) => context.read<ContentBloc>().add(ContentQueryChanged(value)),
+    );
+    final sort = BlocBuilder<ContentBloc, ContentState>(
+      builder: (context, state) => SortDropdown(
+        value: state.sortType,
+        onChanged: (value) {
+          context.read<ContentBloc>().add(ContentSortChanged(value));
+          context.read<SettingsBloc>().add(SortTypeChanged(value));
+        },
+      ),
+    );
+    final reload = IconButton(
+      tooltip: 'Reload from server',
+      onPressed: () => context.read<ContentBloc>().add(const ContentRefreshed()),
+      icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 20),
+    );
+
+    return BlocBuilder<ContentBloc, ContentState>(
+      builder: (context, state) => PopScope(
+        // Back leaves the details page before it leaves the screen; the list is
+        // the default thing to return to.
+        canPop: !compact || _selected == null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _clearSelection();
+        },
+        child: Scaffold(
+          key: _scaffoldKey,
+          drawer: compact ? _categoryDrawer(state, settings.isHidden) : null,
+          body: AppBackground(
+            image: settings.theme.background,
+            child: Column(
+              children: [
+                AppTitleBar(
+                  title: config.branding.windowTitle,
+                  logo: config.branding.logoSmall,
+                  onBack: () {
+                    if (compact && _selected != null) {
+                      _clearSelection();
+                      return;
+                    }
+                    Navigator.of(context).maybePop();
+                  },
+                  actions: [
+                    if (compact)
+                      IconButton(
+                        tooltip: 'Categories',
+                        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                        icon: const Icon(
+                          Icons.format_list_bulleted,
+                          color: AppColors.textMuted,
+                          size: 18,
+                        ),
                       ),
-                    ),
-                  ),
-                  SearchField(
-                    width: 250,
-                    hint: settings.l10n.t('search_hint'),
-                    onChanged: (value) =>
-                        context.read<ContentBloc>().add(ContentQueryChanged(value)),
-                  ),
-                  const SizedBox(width: 10),
-                  BlocBuilder<ContentBloc, ContentState>(
-                    builder: (context, state) => SortDropdown(
-                      value: state.sortType,
-                      onChanged: (value) {
-                        context.read<ContentBloc>().add(ContentSortChanged(value));
-                        context.read<SettingsBloc>().add(SortTypeChanged(value));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    tooltip: 'Reload from server',
-                    onPressed: () => context.read<ContentBloc>().add(const ContentRefreshed()),
-                    icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 20),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: BlocBuilder<ContentBloc, ContentState>(
-                builder: (context, state) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    CategorySidebar(
-                      rows: state.rows,
-                      selectedId: state.selectedCategoryId,
-                      onSelected: (id) =>
-                          context.read<ContentBloc>().add(ContentCategorySelected(id)),
-                      isHidden: (id) => settings.isHidden(id),
-                    ),
-                    Expanded(child: _buildList(state)),
-                    _DetailsPanel(
-                      channel: _selected,
-                      epg: _epg,
-                      loading: _loadingEpg,
-                      preview: _preview,
-                      previewSequence: _previewSequence,
-                      locked: _selected != null && settings.isHidden(_selected!.categoryId),
-                      onPlay: _selected == null ? null : () => _play(_selected!),
-                    ),
                   ],
                 ),
-              ),
+                // The heading, search box, sort order and reload button are one
+                // row on the desktop. On a phone they are stacked, because the
+                // search box alone is 250 of a 360 pixel screen.
+                Padding(
+                  padding: EdgeInsets.fromLTRB(compact ? 14 : 18, 14, compact ? 14 : 18, 10),
+                  child: compact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(child: heading),
+                                sort,
+                                const SizedBox(width: 6),
+                                reload,
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            search,
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: heading),
+                            search,
+                            const SizedBox(width: 10),
+                            sort,
+                            const SizedBox(width: 10),
+                            reload,
+                          ],
+                        ),
+                ),
+                Expanded(
+                  child: compact
+                      ? (_selected == null
+                          ? _buildList(state)
+                          : _detailsPanel(width: null, hidden: settings.isHidden))
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _categorySidebar(state, settings.isHidden),
+                            Expanded(child: _buildList(state)),
+                            _detailsPanel(hidden: settings.isHidden),
+                          ],
+                        ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _categorySidebar(ContentState state, bool Function(String id) hidden) {
+    return CategorySidebar(
+      rows: state.rows,
+      selectedId: state.selectedCategoryId,
+      onSelected: (id) => context.read<ContentBloc>().add(ContentCategorySelected(id)),
+      isHidden: hidden,
+    );
+  }
+
+  /// The category list, as a drawer, for screens too narrow to hold a sidebar.
+  Widget _categoryDrawer(ContentState state, bool Function(String id) hidden) {
+    return Drawer(
+      backgroundColor: AppColors.sidebar,
+      child: SafeArea(
+        child: Builder(
+          builder: (drawerContext) => CategorySidebar(
+            width: double.infinity,
+            rows: state.rows,
+            selectedId: state.selectedCategoryId,
+            onSelected: (id) {
+              Navigator.pop(drawerContext);
+              context.read<ContentBloc>().add(ContentCategorySelected(id));
+            },
+            isHidden: hidden,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The details/EPG panel: a fixed column beside the list, or the whole page
+  /// when there is no room for both.
+  Widget _detailsPanel({double? width = 320, required bool Function(String id) hidden}) {
+    final channel = _selected;
+    return _DetailsPanel(
+      width: width,
+      channel: channel,
+      epg: _epg,
+      loading: _loadingEpg,
+      preview: _preview,
+      previewSequence: _previewSequence,
+      locked: channel != null && hidden(channel.categoryId),
+      onPlay: channel == null ? null : () => _play(channel),
+    );
+  }
+
+  /// Drops the selection and the preview, returning the compact layout to the
+  /// channel list.
+  void _clearSelection() {
+    _selectDebounce?.cancel();
+    _selection++;
+    _stopPreview();
+    setState(() {
+      _selected = null;
+      _epg = const [];
+      _loadingEpg = false;
+    });
   }
 
   Widget _buildList(ContentState state) {
@@ -371,7 +478,12 @@ class _DetailsPanel extends StatelessWidget {
     required this.previewSequence,
     required this.locked,
     required this.onPlay,
+    this.width = 320,
   });
+
+  /// A fixed column beside the channel list, or null to fill the page when the
+  /// panel is the page.
+  final double? width;
 
   final Channel? channel;
   final List<EpgProgram> epg;
@@ -388,10 +500,13 @@ class _DetailsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 320,
-      decoration: const BoxDecoration(
+      width: width,
+      decoration: BoxDecoration(
         color: AppColors.sidebar,
-        border: Border(left: BorderSide(color: AppColors.divider)),
+        // A divider only separates the panel from something to its left.
+        border: width == null
+            ? null
+            : const Border(left: BorderSide(color: AppColors.divider)),
       ),
       child: channel == null
           ? const EmptyBlock(message: 'Select a channel to see details.', icon: Icons.info_outline)
