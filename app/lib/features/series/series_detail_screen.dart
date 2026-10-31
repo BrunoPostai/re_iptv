@@ -212,7 +212,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
           children: [
             AppTitleBar(
               title: config.branding.windowTitle,
-              logo: config.branding.logoSmall,
+              logo: theme.logoSmallFor(config.branding),
               onBack: () => Navigator.of(context).maybePop(),
             ),
             Expanded(

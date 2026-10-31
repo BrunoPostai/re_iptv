@@ -842,6 +842,27 @@ screen, which now draws the chosen theme's wallpaper rather than the default one
 
 ---
 
+## 25. Each theme carries its own mark — `[x]`
+
+The blue app icon on a gold home screen looks like a sticker left on the furniture. The
+icon is part of the skin, so each theme now names a logo of its own: `ThemeSpec.logo`
+and `logoSmall`, both optional, resolved through `logoFor` / `logoSmallFor`. A theme
+that names none keeps the branding mark, so a provider's own logo still wins everywhere
+it is configured. The home screen, the boot screen and every title bar draw the active
+theme's mark; the theme picker draws each card's, so the choice shows what it changes.
+
+The pictures themselves were re-coloured from the stock PNG rather than drawn again,
+mapping hue and value through HSV so the "REIPTV" wordmark stays the one the provider
+shipped. The stock art carries a soft drop shadow, which is invisible on the dark
+default wallpaper and becomes a black rectangle on a gold tile; the themed copies strip
+the neutral dark pixels to transparency. `logo_main.png` is the stock mark treated the
+same way, so all three themes resolve through the same path.
+
+**To check:** on the phone, each of the three themes should draw its own icon with no
+dark halo, on the home screen, the boot screen, and every title bar.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

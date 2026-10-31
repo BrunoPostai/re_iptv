@@ -30,7 +30,7 @@ class PlaylistScreen extends StatelessWidget {
           children: [
             AppTitleBar(
               title: config.branding.windowTitle,
-              logo: config.branding.logoSmall,
+              logo: settings.theme.logoSmallFor(config.branding),
               onBack: () => Navigator.of(context).maybePop(),
             ),
             Expanded(

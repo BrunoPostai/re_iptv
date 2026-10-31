@@ -43,7 +43,7 @@ class SettingsScreen extends StatelessWidget {
           children: [
             AppTitleBar(
               title: config.branding.windowTitle,
-              logo: config.branding.logoSmall,
+              logo: settings.theme.logoSmallFor(config.branding),
               onBack: () => Navigator.of(context).maybePop(),
             ),
             Expanded(
@@ -262,9 +262,25 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          theme.name,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: Image.asset(
+                                theme.logoSmallFor(config.branding),
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                theme.name,
+                                style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

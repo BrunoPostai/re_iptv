@@ -151,12 +151,22 @@ class ThemeSpec {
   final int accent;
   final bool dark;
 
+  /// The mark a theme draws in its own colours, when the provider shipped one.
+  ///
+  /// The app icon is part of the skin: gold looks right on the banner and
+  /// wrong against a black screen. A theme that names no logo keeps the
+  /// branding one, so a provider's own mark still wins everywhere.
+  final String? logo;
+  final String? logoSmall;
+
   const ThemeSpec({
     required this.id,
     required this.name,
     required this.background,
     this.accent = 0xFF2196F3,
     this.dark = true,
+    this.logo,
+    this.logoSmall,
   });
 
   factory ThemeSpec.fromJson(Map<String, dynamic> j) => ThemeSpec(
@@ -165,7 +175,15 @@ class ThemeSpec {
         background: j['background'] as String? ?? 'assets/branding/bg_main.jpg',
         accent: _parseColor(j['accent'] as String?),
         dark: j['dark'] as bool? ?? true,
+        logo: j['logo'] as String?,
+        logoSmall: j['logo_small'] as String?,
       );
+
+  /// The full mark to draw: this theme's, or the branding one.
+  String logoFor(Branding branding) => logo ?? branding.logo;
+
+  /// The title-bar mark to draw: this theme's, or the branding one.
+  String logoSmallFor(Branding branding) => logoSmall ?? branding.logoSmall;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -173,6 +191,8 @@ class ThemeSpec {
         'background': background,
         'accent': '#${accent.toRadixString(16).padLeft(8, '0').substring(2)}',
         'dark': dark,
+        if (logo != null) 'logo': logo,
+        if (logoSmall != null) 'logo_small': logoSmall,
       };
 
   static int _parseColor(String? value) {

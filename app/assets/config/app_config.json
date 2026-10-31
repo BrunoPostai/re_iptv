@@ -60,21 +60,27 @@
       "name": "Background Main",
       "background": "assets/branding/bg_main.jpg",
       "accent": "#2C6FBB",
-      "dark": true
+      "dark": true,
+      "logo": "assets/branding/logo_main.png",
+      "logo_small": "assets/branding/logo_main_small.png"
     },
     {
       "id": "honor",
       "name": "Gold Honor",
       "background": "assets/branding/bg_honor.jpg",
       "accent": "#E0A83C",
-      "dark": true
+      "dark": true,
+      "logo": "assets/branding/logo_honor.png",
+      "logo_small": "assets/branding/logo_honor_small.png"
     },
     {
       "id": "black",
       "name": "Solid Black",
       "background": "assets/branding/bg_black.jpg",
       "accent": "#1F5FA8",
-      "dark": true
+      "dark": true,
+      "logo": "assets/branding/logo_black.png",
+      "logo_small": "assets/branding/logo_black_small.png"
     }
   ],
   "endpoints": {

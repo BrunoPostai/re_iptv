@@ -80,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             AppTitleBar(
               title: '${config.branding.windowTitle}  v$_version',
-              logo: config.branding.logoSmall,
+              logo: settings.theme.logoSmallFor(config.branding),
             ),
             Expanded(
               child: BlocBuilder<PlaylistBloc, PlaylistState>(
@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 SizedBox(
                                   height: 120,
                                   child: Image.asset(
-                                    config.branding.logo,
+                                    settings.theme.logoFor(config.branding),
                                     errorBuilder: (_, __, ___) => Icon(
                                       Icons.play_circle_outline,
                                       size: 92,

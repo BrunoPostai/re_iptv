@@ -144,7 +144,7 @@ class _ReplayBodyState extends State<_ReplayBody> {
               children: [
                 AppTitleBar(
                   title: config.branding.windowTitle,
-                  logo: config.branding.logoSmall,
+                  logo: settings.theme.logoSmallFor(config.branding),
                   onBack: () {
                     if (compact && _selected != null) {
                       setState(() => _selected = null);

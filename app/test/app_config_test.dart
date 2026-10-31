@@ -143,4 +143,45 @@ void main() {
       expect(config.player.liveTuning.cacheOnDisk, isNull);
     });
   });
+
+  group('theme mark', () {
+    test('a theme that names no mark keeps the branding one', () {
+      const branding = Branding();
+      final theme = ThemeSpec.fromJson(const {
+        'id': 'main',
+        'name': 'Background Main',
+        'background': '',
+      });
+
+      expect(theme.logoFor(branding), branding.logo);
+      expect(theme.logoSmallFor(branding), branding.logoSmall);
+    });
+
+    test('a theme that names its own mark is drawn in its colours', () {
+      const branding = Branding();
+      final theme = ThemeSpec.fromJson(const {
+        'id': 'honor',
+        'name': 'Gold Honor',
+        'background': '',
+        'logo': 'assets/branding/logo_honor.png',
+        'logo_small': 'assets/branding/logo_honor_small.png',
+      });
+
+      expect(theme.logoFor(branding), 'assets/branding/logo_honor.png');
+      expect(theme.logoSmallFor(branding), 'assets/branding/logo_honor_small.png');
+    });
+
+    test('the mark survives a round trip through json', () {
+      final theme = ThemeSpec.fromJson(const {
+        'id': 'black',
+        'name': 'Solid Black',
+        'background': '',
+        'logo': 'assets/branding/logo_black.png',
+      });
+
+      final again = ThemeSpec.fromJson(theme.toJson());
+      expect(again.logo, 'assets/branding/logo_black.png');
+      expect(again.logoSmall, isNull);
+    });
+  });
 }

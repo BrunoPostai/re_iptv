@@ -102,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       SizedBox(
                         height: 110,
                         child: Image.asset(
-                          config.branding.logo,
+                          theme.logoFor(config.branding),
                           errorBuilder: (_, __, ___) => Icon(
                             Icons.play_circle_outline,
                             size: 84,
