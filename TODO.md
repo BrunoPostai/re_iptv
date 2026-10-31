@@ -776,6 +776,35 @@ on a host that answers, should not be asked for twice.
 
 ---
 
+## 22. The catalogue and settings keep their desktop columns — `[~]`
+
+Live and Catch Up were given one pane at a time; Movies and Series were only given a
+stacked heading, which fixed the overflow banner and left the shape of the screen
+alone. On a phone that shape was a 250 pixel category sidebar and, beside it, a poster
+grid with 160 pixels to work in: one column of posters down the right-hand side, 14,000
+of them a scroll away.
+
+**Done:** the browser now follows the screens it resembles. Where there is no room for
+a sidebar the categories become a drawer, opened from the title bar, and the grid takes
+the whole width — three columns instead of one. The drawer is the same one Live and
+Catch Up already had, so this was a rearrangement rather than a second design.
+
+Two things fell out of looking at it. `AppColors.sidebar` is 80% opaque, which reads as
+glass beside a list and as the poster grid showing through a drawer, so the three
+drawers now sit on a solid floor and the sidebar keeps its translucency. And the
+settings screen's tiles are 210 pixels wide with a 16 pixel gap, which on a phone is a
+single column of tiles with a stripe of background beside them: compact now divides the
+width in two, which is what the desktop does at its narrowest anyway.
+
+**To check:** on a phone, Movies and Series should open three posters across with a
+categories button in the title bar, and picking a category should close the drawer and
+refilter the grid. Settings should show two tiles per row, and its dialogs should
+scroll rather than run past the screen. On the desktop nothing should have moved: the
+sidebar is still beside the grid, the drawers do not exist, and the settings tiles are
+still 210.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

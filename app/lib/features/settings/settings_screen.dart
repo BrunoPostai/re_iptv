@@ -6,6 +6,7 @@ import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
 import '../../core/i18n/l10n.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/repositories/content_repository.dart';
@@ -27,6 +28,13 @@ class SettingsScreen extends StatelessWidget {
     final features = config.features;
     final settings = context.watch<SettingsBloc>().state;
     final l10n = settings.l10n;
+    // A 210 pixel tile in a 26 pixel margin leaves a phone with a single column
+    // and a stripe of nothing beside it, so on a phone two tiles share the
+    // width, as they do on the desktop at its narrowest.
+    final compact = WindowClass.of(context).isCompact;
+    final tileWidth = compact
+        ? ((MediaQuery.sizeOf(context).width - 52 - 16) / 2).clamp(140.0, 210.0)
+        : 210.0;
 
     return Scaffold(
       body: AppBackground(
@@ -53,7 +61,7 @@ class SettingsScreen extends StatelessWidget {
                         if (features.userAccount)
                           _settingsTile(
                             context,
-                            width: 210,
+                            width: tileWidth,
                             height: 128,
                             label: l10n.t('user_account'),
                             icon: Icons.account_box_outlined,
@@ -62,7 +70,7 @@ class SettingsScreen extends StatelessWidget {
                         if (features.themes)
                           _settingsTile(
                             context,
-                            width: 210,
+                            width: tileWidth,
                             height: 128,
                             label: l10n.t('change_theme'),
                             icon: Icons.palette_outlined,
@@ -72,7 +80,7 @@ class SettingsScreen extends StatelessWidget {
                         if (features.languages)
                           _settingsTile(
                             context,
-                            width: 210,
+                            width: tileWidth,
                             height: 128,
                             label: l10n.t('change_language'),
                             icon: Icons.translate,
@@ -82,7 +90,7 @@ class SettingsScreen extends StatelessWidget {
                         if (features.streamFormat)
                           _settingsTile(
                             context,
-                            width: 210,
+                            width: tileWidth,
                             height: 128,
                             label: l10n.t('stream_format'),
                             icon: Icons.settings_input_component,
@@ -92,7 +100,7 @@ class SettingsScreen extends StatelessWidget {
                         if (features.subtitleSettings)
                           _settingsTile(
                             context,
-                            width: 210,
+                            width: tileWidth,
                             height: 128,
                             label: l10n.t('subtitle_settings'),
                             icon: Icons.subtitles_outlined,
@@ -101,7 +109,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('volume'),
                           icon: Icons.volume_up_outlined,
@@ -111,7 +119,7 @@ class SettingsScreen extends StatelessWidget {
                         if (features.parentalControl)
                           _settingsTile(
                             context,
-                            width: 210,
+                            width: tileWidth,
                             height: 128,
                             label: l10n.t('parental_control'),
                             icon: Icons.lock_outline,
@@ -120,7 +128,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('hide_live_categories'),
                           icon: Icons.visibility_off_outlined,
@@ -128,7 +136,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('hide_movie_categories'),
                           icon: Icons.visibility_off_outlined,
@@ -136,7 +144,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('hide_series_categories'),
                           icon: Icons.visibility_off_outlined,
@@ -144,7 +152,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('change_playlist'),
                           icon: Icons.playlist_play,
@@ -154,7 +162,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('clear_cache'),
                           icon: Icons.cleaning_services_outlined,
@@ -162,7 +170,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         _settingsTile(
                           context,
-                          width: 210,
+                          width: tileWidth,
                           height: 128,
                           label: l10n.t('about'),
                           icon: Icons.info_outline,

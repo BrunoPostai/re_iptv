@@ -353,8 +353,11 @@ class _LiveBodyState extends State<_LiveBody> {
 
   /// The category list, as a drawer, for screens too narrow to hold a sidebar.
   Widget _categoryDrawer(ContentState state, bool Function(String id) hidden) {
+    // The sidebar's own colour is 80% opaque, which reads as glass beside a
+    // list and as the list showing through a drawer. The drawer gets a solid
+    // floor for it to sit on.
     return Drawer(
-      backgroundColor: AppColors.sidebar,
+      backgroundColor: const Color(0xFF04080F),
       child: SafeArea(
         child: Builder(
           builder: (drawerContext) => CategorySidebar(

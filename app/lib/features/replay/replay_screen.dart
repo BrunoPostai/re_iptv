@@ -118,7 +118,10 @@ class _ReplayBodyState extends State<_ReplayBody> {
           key: _scaffoldKey,
           drawer: compact
               ? Drawer(
-                  backgroundColor: AppColors.sidebar,
+                  // The sidebar's own colour is 80% opaque, which reads as glass
+                  // beside a list and as the list behind it showing through a
+                  // drawer; the drawer gets a solid floor to sit on.
+                  backgroundColor: const Color(0xFF04080F),
                   child: SafeArea(
                     child: Builder(
                       builder: (drawerContext) => CategorySidebar(

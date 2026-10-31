@@ -42,11 +42,20 @@ class ContentBrowserScreen extends StatelessWidget {
   }
 }
 
-class _BrowserBody extends StatelessWidget {
+class _BrowserBody extends StatefulWidget {
   const _BrowserBody({required this.kind, required this.heading});
 
   final ContentKind kind;
   final String heading;
+
+  @override
+  State<_BrowserBody> createState() => _BrowserBodyState();
+}
+
+class _BrowserBodyState extends State<_BrowserBody> {
+  /// Opens the category drawer, which only exists when there is no room for a
+  /// sidebar.
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _openMovie(BuildContext context, Movie movie) async {
     final bloc = context.read<ContentBloc>();
@@ -68,65 +77,110 @@ class _BrowserBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final config = getIt<AppConfig>();
     final settings = context.watch<SettingsBloc>().state;
+    final compact = WindowClass.of(context).isCompact;
 
-    return Scaffold(
-      body: AppBackground(
-        image: settings.theme.background,
-        child: Column(
-          children: [
-            AppTitleBar(
-              title: config.branding.windowTitle,
-              logo: config.branding.logoSmall,
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            ScreenHeader(
-              heading: BlocBuilder<PlaylistBloc, PlaylistState>(
-                builder: (context, playlistState) => ScreenHeading(
-                  title: heading,
-                  subtitle: playlistState.active?.name,
-                ),
+    // A phone has no room for a 250 pixel category sidebar beside a poster
+    // grid — what is left is one column of posters 160 wide. There the
+    // categories become a drawer, as they already do on Live and Catch Up, and
+    // the grid takes the whole width.
+    return BlocBuilder<ContentBloc, ContentState>(
+      builder: (context, state) => Scaffold(
+        key: _scaffoldKey,
+        drawer: compact ? _categoryDrawer(state, settings.isHidden) : null,
+        body: AppBackground(
+          image: settings.theme.background,
+          child: Column(
+            children: [
+              AppTitleBar(
+                title: config.branding.windowTitle,
+                logo: config.branding.logoSmall,
+                onBack: () => Navigator.of(context).maybePop(),
+                actions: [
+                  if (compact)
+                    IconButton(
+                      tooltip: 'Categories',
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                      icon: const Icon(
+                        Icons.format_list_bulleted,
+                        color: AppColors.textMuted,
+                        size: 18,
+                      ),
+                    ),
+                ],
               ),
-              search: SearchField(
-                width: WindowClass.of(context).isCompact ? null : 250,
-                hint: settings.l10n.t('search_hint'),
-                onChanged: (value) =>
-                    context.read<ContentBloc>().add(ContentQueryChanged(value)),
-              ),
-              controls: [
-                BlocBuilder<ContentBloc, ContentState>(
-                  builder: (context, state) => SortDropdown(
-                    value: state.sortType,
-                    onChanged: (value) {
-                      context.read<ContentBloc>().add(ContentSortChanged(value));
-                      context.read<SettingsBloc>().add(SortTypeChanged(value));
-                    },
+              ScreenHeader(
+                heading: BlocBuilder<PlaylistBloc, PlaylistState>(
+                  builder: (context, playlistState) => ScreenHeading(
+                    title: widget.heading,
+                    subtitle: playlistState.active?.name,
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Reload from server',
-                  onPressed: () => context.read<ContentBloc>().add(const ContentRefreshed()),
-                  icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 20),
+                search: SearchField(
+                  width: compact ? null : 250,
+                  hint: settings.l10n.t('search_hint'),
+                  onChanged: (value) =>
+                      context.read<ContentBloc>().add(ContentQueryChanged(value)),
                 ),
-              ],
-            ),
-            Expanded(
-              child: BlocBuilder<ContentBloc, ContentState>(
-                builder: (context, state) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    CategorySidebar(
-                      rows: state.rows,
-                      selectedId: state.selectedCategoryId,
-                      onSelected: (id) =>
-                          context.read<ContentBloc>().add(ContentCategorySelected(id)),
-                      isHidden: (id) => settings.isHidden(id),
+                controls: [
+                  BlocBuilder<ContentBloc, ContentState>(
+                    builder: (context, state) => SortDropdown(
+                      value: state.sortType,
+                      onChanged: (value) {
+                        context.read<ContentBloc>().add(ContentSortChanged(value));
+                        context.read<SettingsBloc>().add(SortTypeChanged(value));
+                      },
                     ),
-                    Expanded(child: _buildContent(context, state)),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    tooltip: 'Reload from server',
+                    onPressed: () => context.read<ContentBloc>().add(const ContentRefreshed()),
+                    icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 20),
+                  ),
+                ],
               ),
-            ),
-          ],
+              Expanded(
+                child: compact
+                    ? _buildContent(context, state)
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          CategorySidebar(
+                            rows: state.rows,
+                            selectedId: state.selectedCategoryId,
+                            onSelected: (id) =>
+                                context.read<ContentBloc>().add(ContentCategorySelected(id)),
+                            isHidden: (id) => settings.isHidden(id),
+                          ),
+                          Expanded(child: _buildContent(context, state)),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The category list, as a drawer, for screens too narrow to hold a sidebar.
+  Widget _categoryDrawer(ContentState state, bool Function(String id) hidden) {
+    // The sidebar's own colour is 80% opaque, which reads as glass beside a
+    // list and as a poster grid showing through a drawer. The drawer gets a
+    // solid floor for it to sit on.
+    return Drawer(
+      backgroundColor: const Color(0xFF04080F),
+      child: SafeArea(
+        child: Builder(
+          builder: (drawerContext) => CategorySidebar(
+            width: double.infinity,
+            rows: state.rows,
+            selectedId: state.selectedCategoryId,
+            onSelected: (id) {
+              Navigator.pop(drawerContext);
+              context.read<ContentBloc>().add(ContentCategorySelected(id));
+            },
+            isHidden: hidden,
+          ),
         ),
       ),
     );
@@ -143,7 +197,7 @@ class _BrowserBody extends StatelessWidget {
       );
     }
 
-    if (kind == ContentKind.movie) {
+    if (widget.kind == ContentKind.movie) {
       if (state.movies.isEmpty) {
         return const EmptyBlock(message: 'No movies in this category.', icon: Icons.movie_outlined);
       }
