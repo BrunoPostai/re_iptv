@@ -105,6 +105,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
     // are lost. Holding the close here is what makes a resume land exactly.
     // (Desktop only: a mobile app is not closed by a window button.)
     PlatformWindow.setPreventClose(true);
+    // A phone has no window to enlarge, so the player *is* the whole screen: it
+    // opens with the system bars hidden rather than asking the viewer to press
+    // fullscreen first, and hands them back when it closes.
+    if (PlatformWindow.isMobile) {
+      _fullscreen = true;
+      PlatformWindow.setFullScreen(true);
+    }
     _scheduleHide();
   }
 
@@ -112,6 +119,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   void dispose() {
     PlatformWindow.removeListener(this);
     PlatformWindow.setPreventClose(false);
+    if (PlatformWindow.isMobile) PlatformWindow.setFullScreen(false);
     _hideTimer?.cancel();
     _persistProgress();
     _bloc?.close();

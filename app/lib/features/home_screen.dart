@@ -6,6 +6,7 @@ import '../blocs/playlist_bloc.dart';
 import '../blocs/settings_bloc.dart';
 import '../core/config/app_config.dart';
 import '../core/di/injector.dart';
+import '../core/platform/window_class.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/common.dart';
@@ -61,6 +62,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final settings = context.watch<SettingsBloc>().state;
     final theme = settings.theme;
     final features = config.features;
+    // The desktop centres a grid of fixed 132 pixel tiles, which leaves a phone
+    // with a stripe of background down each side. There they share the width
+    // instead: three to a row at twelve apiece apart, which is what fits seven
+    // tiles on one screen rather than four rows of two.
+    final compact = WindowClass.of(context).isCompact;
+    final tileGap = compact ? 12.0 : 18.0;
+    final tileSize = compact
+        ? ((MediaQuery.sizeOf(context).width - 48 - tileGap * 2) / 3).clamp(96.0, 190.0)
+        : 132.0;
 
     return Scaffold(
       body: AppBackground(
@@ -129,43 +139,49 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 40),
                                 Wrap(
                                   alignment: WrapAlignment.center,
-                                  spacing: 18,
-                                  runSpacing: 18,
+                                  spacing: tileGap,
+                                  runSpacing: tileGap,
                                   children: [
                                     if (features.live)
                                       NavTile(
                                         label: settings.l10n.t('live_tv'),
                                         icon: Icons.live_tv,
+                                        size: tileSize,
                                         onTap: () => _open(const LiveScreen()),
                                       ),
                                     if (features.movies)
                                       NavTile(
                                         label: settings.l10n.t('movies'),
                                         icon: Icons.movie_creation_outlined,
+                                        size: tileSize,
                                         onTap: () => _open(const MoviesScreen()),
                                       ),
                                     if (features.series)
                                       NavTile(
                                         label: settings.l10n.t('series'),
                                         icon: Icons.video_library_outlined,
+                                        size: tileSize,
                                         onTap: () => _open(const SeriesScreen()),
                                       ),
                                     if (features.replay)
                                       NavTile(
                                         label: settings.l10n.t('replay'),
                                         icon: Icons.history,
+                                        size: tileSize,
                                         onTap: () => _open(const ReplayScreen()),
                                       ),
                                     if (features.changePlaylist)
                                       NavTile(
                                         label: settings.l10n.t('change_playlist'),
                                         icon: Icons.playlist_play,
+                                        size: tileSize,
                                         onTap: () => _open(const PlaylistScreen()),
                                       ),
                                     if (features.search)
                                       NavTile(
                                         label: settings.l10n.t('search'),
                                         icon: Icons.search,
+                                        size: tileSize,
                                         onTap: () => Navigator.of(context).push(
                                           MaterialPageRoute(builder: (_) => const SearchScreen()),
                                         ),
@@ -174,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       NavTile(
                                         label: settings.l10n.t('settings'),
                                         icon: Icons.settings,
+                                        size: tileSize,
                                         onTap: () => _open(const SettingsScreen()),
                                       ),
                                   ],

@@ -723,11 +723,23 @@ on the picture should bring the bar back, and the ten second buttons should move
 film. Windows should be untouched: three panes, the same title bar, the same
 fullscreen.
 
+**What the phone said:** the layout above was right, and three things were still
+wrong once it was in a hand. Android 15 draws the app edge to edge, so the navigation
+bar sat on top of the bottom of every page — `AppBackground` now pads its child by
+the system insets while the artwork behind it still reaches the edges. The home grid
+kept its fixed 132 pixel tiles, which is a stripe of background down each side and a
+seventh tile stranded on a row of its own; on a phone the tiles now divide the width
+three to a row, twelve pixels apart, which is what fits all seven on one screen. And
+the player still had to be asked for fullscreen, which is a desktop habit: where
+there is no window to resize it now opens with the system bars already hidden and
+gives them back as it closes. Home, Change Playlist, Live — list, preview and Watch
+— Catch Up and the player were walked on the phone; the rest of the screens are
+still to come.
+
 **Still open:** the player's subtitle, audio and stats panels are still dialogs sized
 for a desktop, and seeking only goes ten seconds at a time rather than following a
 drag along the picture. The APK builds — 205 MB, because a debug build carries libmpv
-for four architectures — but nothing has been run on a phone yet, and iOS still needs
-a Mac.
+for four architectures — and it installs and plays on a phone; iOS still needs a Mac.
 
 ---
 

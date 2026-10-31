@@ -12,6 +12,7 @@ class NavTile extends StatefulWidget {
     this.accent = AppColors.orange,
     this.iconColor = Colors.white,
     this.badge,
+    this.size = 132,
   });
 
   final String label;
@@ -20,6 +21,11 @@ class NavTile extends StatefulWidget {
   final Color accent;
   final Color iconColor;
   final String? badge;
+
+  /// The tile is square; a phone gives it more of the width than the desktop
+  /// does, so the grid fills the screen instead of leaving a stripe of empty
+  /// background down each side.
+  final double size;
 
   @override
   State<NavTile> createState() => _NavTileState();
@@ -38,8 +44,8 @@ class _NavTileState extends State<NavTile> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          width: 132,
-          height: 132,
+          width: widget.size,
+          height: widget.size,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: _hovered
@@ -63,7 +69,7 @@ class _NavTileState extends State<NavTile> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(widget.icon, size: 42, color: widget.iconColor),
+                  Icon(widget.icon, size: widget.size * 0.32, color: widget.iconColor),
                   if (widget.badge != null)
                     Positioned(
                       right: -14,

@@ -33,6 +33,16 @@ class AppBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = resolveImage(image);
+    // Android 15 and later draw the app edge to edge, so the navigation bar sits
+    // over the bottom of the page instead of below it. The artwork still wants
+    // to reach the edge; the content on top of it must not.
+    final safe = MediaQuery.paddingOf(context);
+    final content = safe.bottom > 0 || safe.left > 0 || safe.right > 0
+        ? Padding(
+            padding: EdgeInsets.only(bottom: safe.bottom, left: safe.left, right: safe.right),
+            child: child,
+          )
+        : child;
     return DecoratedBox(
       decoration: const BoxDecoration(color: Color(0xFF04080F)),
       child: Stack(
@@ -59,7 +69,7 @@ class AppBackground extends StatelessWidget {
               ),
             ),
           ),
-          child,
+          content,
         ],
       ),
     );
