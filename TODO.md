@@ -743,6 +743,39 @@ for four architectures — and it installs and plays on a phone; iOS still needs
 
 ---
 
+## 21. Every channel row showed a letter where its logo should be — `[~]`
+
+The first thing the phone showed that the desktop had not: every channel in the
+list was a single letter. `SmartImage` falls back to the first character of the name
+when an image will not load, so the fallback was doing its job — across the whole
+list, on a screen the port had only just started drawing. It looked like news,
+because the port was what had changed.
+
+It was not the port. The content cache pulled off the phone
+(`run-as com.reiptv.re_iptv cat files/localData/re-iptv-<id>.hive`) holds 84,084
+image URLs and every one of them is on `cdn.invalid`, which answers Cloudflare's `403`
+"Attention Required!" page — to the phone, to a desktop Chrome user agent, to VLC's,
+to a Dalvik one. It refuses everyone, so the desktop had been showing the same letters.
+The same ids are served by the panel itself: `https://panel.invalid/logo/53084.jpg`
+is `200 image/jpeg`, 17 KB, the Digimon logo. The playlist data names a host the
+provider has left behind, and nothing on our side can fix that but ignore it.
+
+**Done:** `Artwork` remembers the panel the active playlist talks to — set when a
+playlist is made active, and again on every source lookup, because the first frame can
+draw from Hive before anything has been fetched — and offers the same path there.
+`SmartImage` became stateful in order to ask twice: the provider's URL, then the
+panel's, then the placeholder letter. Nothing is rewritten in the stored data, so a
+provider that mends its logos is picked up as it stands; an image already on the
+panel, a local file, and an M3U playlist — which names its own hosts and has no panel
+to ask — are left alone. `test/artwork_test.dart` pins the rewriting: scheme, host and
+port are replaced, the path and its query kept.
+
+**To check:** channel rows on the phone should draw logos instead of letters, and so
+should the movie and series posters the provider hosts itself; TMDB artwork, already
+on a host that answers, should not be asked for twice.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

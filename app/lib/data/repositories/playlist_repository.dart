@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/constants.dart';
+import '../../core/utils/artwork.dart';
 import '../../core/utils/http.dart';
 import '../models/models.dart';
 import '../sources/playlist_source.dart';
@@ -31,6 +32,14 @@ class PlaylistRepository {
   Future<void> setActive(String id) async {
     await _storage.setRecentPlaylistId(id);
     await _storage.openContentBox(id);
+    // Artwork in this playlist's data may name a host that no longer answers,
+    // and the panel is where an image asks next. Set here as well as on every
+    // lookup: the first frame can draw from the cache before anything is
+    // fetched, and it should already know where to look.
+    final playlist = active;
+    if (playlist != null) {
+      Artwork.usePanel(playlist.type == PlaylistType.xc ? playlist.host : null);
+    }
   }
 
   Future<void> add(Playlist playlist) async {
@@ -58,18 +67,25 @@ class PlaylistRepository {
     }
   }
 
-  PlaylistSource sourceFor(Playlist playlist) => _sources.putIfAbsent(
-        playlist.id,
-        () => switch (playlist.type) {
-          PlaylistType.xc => XtreamSource(
-              playlist,
-              dio: _dio,
-              userAgent: _config.player.userAgent,
-              format: _storage.readSetting(StoreKeys.streamFormat, _config.player.streamFormat),
-            ),
-          _ => M3uSource(playlist, dio: _dio, userAgent: _config.player.userAgent),
-        },
-      );
+  PlaylistSource sourceFor(Playlist playlist) {
+    // Artwork is about to be read out of this playlist's data, and the URLs in
+    // it may name a host that no longer answers; the panel is where an image
+    // asks next. Set on every lookup rather than on creation, because switching
+    // between playlists reuses the sources already built.
+    Artwork.usePanel(playlist.type == PlaylistType.xc ? playlist.host : null);
+    return _sources.putIfAbsent(
+      playlist.id,
+      () => switch (playlist.type) {
+        PlaylistType.xc => XtreamSource(
+            playlist,
+            dio: _dio,
+            userAgent: _config.player.userAgent,
+            format: _storage.readSetting(StoreKeys.streamFormat, _config.player.streamFormat),
+          ),
+        _ => M3uSource(playlist, dio: _dio, userAgent: _config.player.userAgent),
+      },
+    );
+  }
 
   /// Adds the bundled demo playlist when enabled and nothing is configured.
   Future<void> ensureDemoPlaylist() async {
