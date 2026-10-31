@@ -1,6 +1,6 @@
 # re_iptv (application)
 
-The Flutter desktop client. Everything you need is in the repository root
+The Flutter client, for Windows and Android. Everything you need is in the repository root
 [`README.md`](../README.md); this file only covers working inside the package.
 
 ## Run / build
@@ -9,6 +9,7 @@ The Flutter desktop client. Everything you need is in the repository root
 flutter pub get
 flutter run -d windows
 flutter build windows --release     # -> build\windows\x64\runner\Release\re_iptv.exe
+flutter build apk --release         # -> build\app\outputs\flutter-apk\app-release.apk
 ```
 
 On a machine without Developer Mode, create the Windows plugin links as junctions
@@ -36,7 +37,8 @@ lib/
 └─ widgets/    title bar, tiles, grids, dialogs
 assets/
 ├─ config/     app_config.json — the personalisation entry point
-├─ branding/   neutral placeholder logo and backgrounds (regenerate with tools/make_branding.py)
+├─ branding/   neutral placeholder logo and backgrounds, plus the per-theme marks
+│              (regenerate with tools/make_branding.py)
 └─ languages/  en.json + index.json
 
 tool/hive_dump.dart    read-only inspector for the app's own Hive boxes

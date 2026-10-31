@@ -89,6 +89,45 @@ flutter test           # models, config merge, Xtream/M3U parsing, URL builders
 The demo/registration-free build starts with an empty playlist list — add your own
 through **Change Playlist → Add Playlist**.
 
+## Building (Android)
+
+Requirements: Flutter stable, the Android SDK, and a JDK 17 — `flutter doctor`
+reports all three.
+
+```powershell
+cd app
+flutter pub get
+flutter run -d <device>                                   # debug, over USB
+flutter build apk --release                               # every ABI, ~95 MB
+flutter build apk --release --target-platform android-arm64   # one phone's, ~60 MB
+adb install -r build\app\outputs\flutter-apk\app-release.apk
+```
+
+Sideloading on a phone that is not attached to this machine: copy the APK over,
+open it, allow installs from that app, and dismiss Play Protect's *unsafe app
+blocked* with *more details → install anyway* — expected for any self-signed
+build.
+
+### Release signing
+
+Release builds read `android/key.properties` (gitignored, as is the keystore it
+points at); copy [`app/android/key.properties.example`](app/android/key.properties.example)
+and fill it in. A checkout without that file still builds, signing with the debug
+key, which is fine for your own phone and useless for anyone else's: a debug
+keystore lives on one machine, so the next build from another machine cannot be
+installed over it.
+
+Generate the key once, keep it out of the repository, and keep a copy somewhere
+you would keep a passport:
+
+```powershell
+keytool -genkeypair -v -keystore re_iptv-release.jks -storetype PKCS12 `
+        -keyalg RSA -keysize 2048 -validity 10000 -alias re_iptv
+```
+
+Losing it means every phone must uninstall the app — and its saved playlists —
+before the next build can be installed.
+
 ## Personalising
 
 Everything user-visible lives in `app/assets/config/app_config.json`

@@ -1,0 +1,20 @@
+# Template for the release signing material. Copy to key.properties, fill it in,
+# and keep the keystore somewhere that is not this repository.
+#
+#   keytool -genkeypair -v -keystore re_iptv-release.jks -storetype PKCS12 \
+#           -keyalg RSA -keysize 2048 -validity 10000 -alias re_iptv
+#
+# Then build with:
+#
+#   flutter build apk --release
+#
+# key.properties and the keystore are both gitignored. Losing the keystore means
+# the next build cannot be installed over the last one: every phone would have
+# to uninstall the app first, and any saved playlists with it. Keep a copy
+# somewhere you would keep a passport, and keep the password in a password
+# manager rather than only in this file.
+storePassword=change-me
+keyPassword=change-me
+keyAlias=re_iptv
+# Forward slashes; Gradle reads this as a path, not as a shell argument.
+storeFile=C:/path/to/re_iptv-release.jks

@@ -887,6 +887,34 @@ should be exactly as they were.
 
 ---
 
+## 27. A release key of its own — `[x]`
+
+The release build was signed with the debug key, which is fine for the one phone
+attached to this machine and useless for anything else: a debug keystore lives in
+`~/.android` on the machine that built it, so an APK handed to someone else cannot be
+upgraded by the next build - Android refuses a signature change and the app has to be
+uninstalled, taking the saved playlist with it.
+
+**Done:** a PKCS12 key pair, `re_iptv-release.jks`, kept outside the repository in
+`Documents/keystores/re_iptv/`, and `app/android/key.properties` pointing at it (both
+gitignored, with `app/android/key.properties.example` committed as the template).
+`app/android/app/build.gradle.kts` reads the properties file when it exists and signs
+with it; when it does not, it still signs with the debug key, so a fresh clone can make
+an APK for its own phone without being told about a key it cannot have.
+
+The README now says how to build for Android, how to sideload, and what losing the
+keystore costs. The certificate fingerprint, for whoever needs to compare it later:
+
+```
+SHA-256 96:FD:5A:4D:9E:A7:88:2B:26:91:32:6D:D3:8C:24:C7:F8:36:EA:FD:49:DB:A0:05:F4:F8:ED:8E:57:23:F5:90
+```
+
+**To check:** `flutter build apk --release` should produce an APK signed by `CN=REIPTV`
+rather than `CN=Android Debug` (`apksigner verify --print-certs`), and the phone that
+carried the debug build must be uninstalled once before it will take this one.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

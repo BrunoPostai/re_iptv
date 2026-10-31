@@ -23,6 +23,11 @@ app/assets/config/app_config.local.json
 app/assets/branding/local/
 app/assets/languages/local/
 
+# Release signing — never committed
+app/android/key.properties
+*.jks
+*.keystore
+
 # Analysis artefacts that may contain user data
 *.hive
 *.hive.lock
