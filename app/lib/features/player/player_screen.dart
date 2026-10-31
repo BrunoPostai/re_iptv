@@ -111,6 +111,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
     if (PlatformWindow.isMobile) {
       _fullscreen = true;
       PlatformWindow.setFullScreen(true);
+      // A film is wider than the phone is tall, so open the player sideways
+      // and let it stand back up when the viewer leaves.
+      PlatformWindow.setLandscape(true);
     }
     _scheduleHide();
   }
@@ -119,7 +122,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
   void dispose() {
     PlatformWindow.removeListener(this);
     PlatformWindow.setPreventClose(false);
-    if (PlatformWindow.isMobile) PlatformWindow.setFullScreen(false);
+    if (PlatformWindow.isMobile) {
+      PlatformWindow.setFullScreen(false);
+      PlatformWindow.setLandscape(false);
+    }
     _hideTimer?.cancel();
     _persistProgress();
     _bloc?.close();

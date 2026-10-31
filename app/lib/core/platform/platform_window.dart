@@ -107,4 +107,19 @@ abstract final class PlatformWindow {
       fullscreen ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
     );
   }
+
+  /// Turns a phone sideways for a film, and lets it back afterwards.
+  ///
+  /// A stream is wider than it is tall, so in portrait the picture is a band
+  /// across the middle of the screen with black above and below it. The desktop
+  /// has no orientation to set and ignores this; an empty list hands the choice
+  /// back to the system.
+  static Future<void> setLandscape(bool landscape) async {
+    if (!isMobile) return;
+    await SystemChrome.setPreferredOrientations(
+      landscape
+          ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+          : const <DeviceOrientation>[],
+    );
+  }
 }

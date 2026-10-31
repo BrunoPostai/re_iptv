@@ -805,6 +805,22 @@ still 210.
 
 ---
 
+## 23. A film opens the phone sideways — `[x]`
+
+The player hid the system bars and then played a 16:9 stream in a 20:9 portrait window:
+a band across the middle, black above and below, and a viewer holding the phone
+upright to watch it.
+
+**Done:** `PlatformWindow.setLandscape` asks Flutter for both landscape orientations,
+and the player takes it in `initState` beside fullscreen, handing the choice back in
+`dispose`, so closing a film returns to the portrait screen and the channel list it
+came from. The desktop has no orientation to set and ignores it.
+
+**To check:** a channel should open sideways on the phone, and the back gesture should
+put the app upright again on the detail screen behind it.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card
