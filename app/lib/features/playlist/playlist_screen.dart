@@ -135,6 +135,7 @@ class _PlaylistCardState extends State<_PlaylistCard> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final playlist = widget.playlist;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -147,12 +148,12 @@ class _PlaylistCardState extends State<_PlaylistCard> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: widget.active
-                ? AppColors.blue.withValues(alpha: 0.3)
+                ? palette.accent.withValues(alpha: 0.3)
                 : Colors.black.withValues(alpha: 0.28),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: widget.active
-                  ? AppColors.gold
+                  ? palette.accent
                   : (_hovered ? Colors.white24 : AppColors.divider),
             ),
           ),
@@ -162,7 +163,7 @@ class _PlaylistCardState extends State<_PlaylistCard> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.blueDark,
+                  color: palette.accentDeep,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(
@@ -195,13 +196,13 @@ class _PlaylistCardState extends State<_PlaylistCard> {
                             margin: const EdgeInsets.only(left: 8),
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: AppColors.gold.withValues(alpha: 0.2),
+                              color: palette.accent.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: const Text(
+                            child: Text(
                               'ACTIVE',
                               style: TextStyle(
-                                color: AppColors.gold,
+                                color: palette.accent,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -243,14 +244,15 @@ class _AccountPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final storage = getIt<AppStorage>();
     final settings = context.watch<SettingsBloc>().state;
     final auth = state.auth;
 
     return Container(
       width: 360,
-      decoration: const BoxDecoration(
-        color: AppColors.sidebar,
+      decoration: BoxDecoration(
+        color: palette.sidebar,
         border: Border(left: BorderSide(color: AppColors.divider)),
       ),
       child: SingleChildScrollView(
@@ -258,10 +260,10 @@ class _AccountPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'DEVICE',
               style: TextStyle(
-                color: AppColors.gold,
+                color: palette.accent,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -269,13 +271,13 @@ class _AccountPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             InfoRow(label: 'Mac Address', value: storage.macAddress),
-            InfoRow(label: 'Device Key', value: storage.deviceKey, color: AppColors.gold),
+            InfoRow(label: 'Device Key', value: storage.deviceKey, color: palette.accent),
             InfoRow(label: 'Device Id', value: storage.deviceId),
             const Divider(height: 30, color: AppColors.divider),
-            const Text(
+            Text(
               'ACCOUNT',
               style: TextStyle(
-                color: AppColors.gold,
+                color: palette.accent,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -298,11 +300,11 @@ class _AccountPanel extends StatelessWidget {
               InfoRow(label: 'Status', value: auth?.status.isEmpty ?? true ? '—' : auth!.status),
               InfoRow(label: 'Connections', value: '${auth?.maxConnections ?? '—'}'),
               if (auth?.isTrial == true)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     'TRIAL ACCOUNT',
-                    style: TextStyle(color: AppColors.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: palette.accentBright, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
             ],
@@ -424,6 +426,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return AlertDialog(
       title: const Text('Add playlist', style: TextStyle(fontSize: 16)),
       content: SizedBox(
@@ -494,7 +497,11 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
         ),
         ElevatedButton(
           onPressed: _submit,
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.blue, elevation: 0),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: palette.accent,
+            foregroundColor: inkOn(palette.accent),
+            elevation: 0,
+          ),
           child: const Text('Add playlist'),
         ),
       ],
@@ -535,19 +542,20 @@ class _TypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.blue.withValues(alpha: 0.45) : Colors.black.withValues(alpha: 0.25),
+          color: selected ? palette.accent.withValues(alpha: 0.45) : Colors.black.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: selected ? AppColors.gold : AppColors.divider),
+          border: Border.all(color: selected ? palette.accent : AppColors.divider),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: selected ? AppColors.gold : AppColors.textMuted),
+            Icon(icon, size: 16, color: selected ? palette.accent : AppColors.textMuted),
             const SizedBox(width: 8),
             Text(
               label,

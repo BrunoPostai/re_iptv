@@ -83,12 +83,13 @@ class _FallbackArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    final palette = context.palette;
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: Alignment.topLeft,
           radius: 1.4,
-          colors: [Color(0xFF0E2A4A), Color(0xFF050B14)],
+          colors: [palette.panelAlt.withValues(alpha: 1), palette.panel.withValues(alpha: 1)],
         ),
       ),
     );
@@ -100,21 +101,25 @@ class ScreenHeading extends StatelessWidget {
   const ScreenHeading({
     super.key,
     required this.title,
-    this.color = AppColors.gold,
+    this.color,
     this.trailing,
     this.subtitle,
   });
 
   final String title;
-  final Color color;
+
+  /// Defaults to the theme's accent, which is what the original painted gold.
+  final Color? color;
   final Widget? trailing;
   final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final colour = color ?? palette.accent;
     return Row(
       children: [
-        Container(width: 4, height: 24, color: color),
+        Container(width: 4, height: 24, color: colour),
         const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +128,7 @@ class ScreenHeading extends StatelessWidget {
             Text(
               title,
               style: TextStyle(
-                color: color,
+                color: colour,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.6,
@@ -296,26 +301,33 @@ class AccentButton extends StatelessWidget {
     required this.label,
     this.icon,
     this.onPressed,
-    this.color = AppColors.blue,
+    this.color,
     this.compact = false,
   });
 
   final String label;
   final IconData? icon;
   final VoidCallback? onPressed;
-  final Color color;
+
+  /// Defaults to the theme's accent.
+  final Color? color;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final fill = color ?? palette.accent;
+    // A pale accent — the gold theme is one — needs dark lettering to stay
+    // readable; a deep one, like the blue, needs white.
+    final ink = inkOn(fill);
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 16),
       label: Text(label, style: TextStyle(fontSize: compact ? 12 : 13)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: color.withValues(alpha: 0.35),
+        backgroundColor: fill,
+        foregroundColor: ink,
+        disabledBackgroundColor: fill.withValues(alpha: 0.35),
         elevation: 0,
         padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 18, vertical: compact ? 8 : 11),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -349,20 +361,24 @@ class OutlineButtonX extends StatelessWidget {
 
 /// Small pill used to display e.g. "Current Playlist Expired On".
 class StatusPill extends StatelessWidget {
-  const StatusPill({super.key, required this.label, this.value, this.color = AppColors.gold});
+  const StatusPill({super.key, required this.label, this.value, this.color});
 
   final String label;
   final String? value;
-  final Color color;
+
+  /// Defaults to the theme's accent.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final colour = color ?? palette.accent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: colour.withValues(alpha: 0.5)),
       ),
       child: RichText(
         text: TextSpan(
@@ -372,7 +388,7 @@ class StatusPill extends StatelessWidget {
             if (value != null)
               TextSpan(
                 text: value,
-                style: TextStyle(color: color, fontWeight: FontWeight.w600),
+                style: TextStyle(color: colour, fontWeight: FontWeight.w600),
               ),
           ],
         ),
@@ -482,7 +498,7 @@ Future<bool> confirmDialog(
         ),
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.blue, elevation: 0),
+          style: ElevatedButton.styleFrom(backgroundColor: AppPalette.of(context).accent, elevation: 0),
           child: Text(confirmLabel),
         ),
       ],

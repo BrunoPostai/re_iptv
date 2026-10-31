@@ -9,7 +9,7 @@ class NavTile extends StatefulWidget {
     required this.label,
     required this.icon,
     required this.onTap,
-    this.accent = AppColors.orange,
+    this.accent,
     this.iconColor = Colors.white,
     this.badge,
     this.size = 132,
@@ -18,7 +18,9 @@ class NavTile extends StatefulWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final Color accent;
+
+  /// Defaults to the theme's brighter accent.
+  final Color? accent;
   final Color iconColor;
   final String? badge;
 
@@ -36,6 +38,8 @@ class _NavTileState extends State<NavTile> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final accent = widget.accent ?? palette.accentBright;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
@@ -49,18 +53,21 @@ class _NavTileState extends State<NavTile> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: _hovered
-                  ? [AppColors.blueTile, AppColors.blueDark]
-                  : [const Color(0xCC12365F), const Color(0xCC0B1F38)],
+                  ? [palette.accentBright, palette.accentDeep]
+                  : [
+                      palette.panelAlt.withValues(alpha: 0.8),
+                      palette.panel.withValues(alpha: 0.8),
+                    ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: _hovered ? widget.accent : AppColors.divider,
+              color: _hovered ? accent : AppColors.divider,
               width: _hovered ? 1.6 : 1,
             ),
             boxShadow: _hovered
-                ? [BoxShadow(color: widget.accent.withValues(alpha: 0.25), blurRadius: 14)]
+                ? [BoxShadow(color: accent.withValues(alpha: 0.25), blurRadius: 14)]
                 : null,
           ),
           child: Column(
@@ -97,7 +104,7 @@ class _NavTileState extends State<NavTile> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: widget.accent,
+                    color: accent,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -137,6 +144,7 @@ class _SettingsTileState extends State<SettingsTile> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return MouseRegion(
       cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hovered = true),
@@ -148,13 +156,16 @@ class _SettingsTileState extends State<SettingsTile> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: _hovered && widget.enabled
-                  ? [const Color(0xFF2A6DBC), const Color(0xFF17406E)]
-                  : [const Color(0xE61B4C86), const Color(0xE60E2A4C)],
+                  ? [palette.accent, palette.accentDeep]
+                  : [
+                      palette.panelAlt.withValues(alpha: 0.95),
+                      palette.panel.withValues(alpha: 0.95),
+                    ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _hovered && widget.enabled ? AppColors.gold : AppColors.divider),
+            border: Border.all(color: _hovered && widget.enabled ? palette.accent : AppColors.divider),
           ),
           child: Opacity(
             opacity: widget.enabled ? 1 : 0.45,
@@ -170,8 +181,8 @@ class _SettingsTileState extends State<SettingsTile> {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.gold,
+                    style: TextStyle(
+                      color: palette.accent,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                     ),

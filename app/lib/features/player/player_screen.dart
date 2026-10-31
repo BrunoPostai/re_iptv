@@ -630,6 +630,7 @@ class _Overlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final bloc = context.read<PlayerBloc>();
     final item = state.item;
 
@@ -737,9 +738,9 @@ class _Overlay extends StatelessWidget {
                   builder: (context, current) => SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       trackHeight: 3,
-                      activeTrackColor: AppColors.gold,
+                      activeTrackColor: palette.accent,
                       inactiveTrackColor: Colors.white24,
-                      thumbColor: AppColors.gold,
+                      thumbColor: palette.accent,
                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                     ),
@@ -865,6 +866,7 @@ class _Overlay extends StatelessWidget {
   }
 
   void _showTrackSheet(BuildContext context, PlayerState state, bool subtitles) {
+    final palette = context.palette;
     final bloc = context.read<PlayerBloc>();
     final List<(String, String?, VoidCallback)> entries = subtitles
         ? [
@@ -886,7 +888,7 @@ class _Overlay extends StatelessWidget {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.panelAlt,
+      backgroundColor: palette.panelAlt,
       builder: (sheetContext) => ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -895,7 +897,7 @@ class _Overlay extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             child: Text(
               subtitles ? 'Subtitles' : 'Audio track',
-              style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w600),
+              style: TextStyle(color: palette.accent, fontWeight: FontWeight.w600),
             ),
           ),
           if (subtitles)
@@ -1049,12 +1051,13 @@ class _OverlayAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return TextButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 18),
       label: Text(label, style: const TextStyle(fontSize: 13)),
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.gold,
+        foregroundColor: palette.accent,
         backgroundColor: Colors.black.withValues(alpha: 0.55),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       ),

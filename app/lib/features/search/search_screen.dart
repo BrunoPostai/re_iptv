@@ -196,6 +196,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     final settings = context.watch<SettingsBloc>().state;
 
@@ -228,8 +229,8 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
               child: TabBar(
                 controller: _tabs,
                 isScrollable: true,
-                indicatorColor: AppColors.gold,
-                labelColor: AppColors.gold,
+                indicatorColor: palette.accent,
+                labelColor: palette.accent,
                 unselectedLabelColor: AppColors.textMuted,
                 labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                 tabs: [

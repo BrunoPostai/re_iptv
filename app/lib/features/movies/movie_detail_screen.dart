@@ -125,6 +125,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     final theme = context.watch<SettingsBloc>().state.theme;
     // A phone cannot spare 250 pixels for a poster beside the plot: that leaves
@@ -196,8 +197,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                               children: [
                                 Text(
                                   _movie.name,
-                                  style: const TextStyle(
-                                    color: AppColors.gold,
+                                  style: TextStyle(
+                                    color: palette.accent,
                                     fontSize: 24,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -239,7 +240,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                                           value: _progress.first.percent,
                                           minHeight: 4,
                                           backgroundColor: Colors.white12,
-                                          valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                                          valueColor: AlwaysStoppedAnimation(palette.accent),
                                         ),
                                       ],
                                     ),
@@ -290,12 +291,13 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
-          color: AppColors.gold,
+        style: TextStyle(
+          color: palette.accent,
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1,
@@ -313,6 +315,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
@@ -323,7 +326,7 @@ class _Chip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppColors.gold),
+          Icon(icon, size: 12, color: palette.accent),
           const SizedBox(width: 5),
           Text(label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 11.5)),
         ],

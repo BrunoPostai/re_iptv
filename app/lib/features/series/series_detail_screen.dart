@@ -194,6 +194,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     final theme = context.watch<SettingsBloc>().state.theme;
     // A phone has no room for a column beside a list: the details come first
@@ -226,16 +227,16 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                             padding: const EdgeInsets.all(14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: _details(series, info, episodes),
+                              children: _details(context, series, info, episodes),
                             ),
                           ),
                           if (episodes.isNotEmpty)
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.fromLTRB(14, 0, 14, 8),
                               child: Text(
                                 'EPISODES',
                                 style: TextStyle(
-                                  color: AppColors.gold,
+                                  color: palette.accent,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1,
@@ -279,7 +280,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                             padding: const EdgeInsets.all(22),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: _details(series, info, episodes),
+                              children: _details(context, series, info, episodes),
                             ),
                           ),
                         ),
@@ -319,7 +320,13 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   ///
   /// One column on the desktop, where it sits beside the episode list; the top
   /// of the page on a phone, where there is no room to sit beside anything.
-  List<Widget> _details(Series series, SeriesInfo? info, List<Episode> episodes) {
+  List<Widget> _details(
+    BuildContext context,
+    Series series,
+    SeriesInfo? info,
+    List<Episode> episodes,
+  ) {
+    final palette = context.palette;
     return <Widget>[
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,8 +350,8 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
               children: [
                 Text(
                   series.name,
-                  style: const TextStyle(
-                    color: AppColors.gold,
+                  style: TextStyle(
+                    color: palette.accent,
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
@@ -353,7 +360,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                 if (series.rating5Based > 0)
                   Row(
                     children: [
-                      const Icon(Icons.star, size: 13, color: AppColors.gold),
+                      Icon(Icons.star, size: 13, color: palette.accent),
                       const SizedBox(width: 4),
                       Text(
                         series.rating5Based.toStringAsFixed(1),
@@ -380,7 +387,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int>(
                             value: _season,
-                            dropdownColor: AppColors.panelAlt,
+                            dropdownColor: palette.panelAlt,
                             isDense: true,
                             style: const TextStyle(
                               color: AppColors.textPrimary,
@@ -432,10 +439,10 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
       ),
       if (series.plot.isNotEmpty) ...[
         const SizedBox(height: 18),
-        const Text(
+        Text(
           'PLOT',
           style: TextStyle(
-            color: AppColors.gold,
+            color: palette.accent,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 1,
@@ -484,6 +491,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final episode = widget.episode;
     final progress = widget.progress;
     return MouseRegion(
@@ -498,7 +506,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
           decoration: BoxDecoration(
             color: _hovered ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.28),
             borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: _hovered ? AppColors.gold.withValues(alpha: 0.6) : AppColors.divider),
+            border: Border.all(color: _hovered ? palette.accent.withValues(alpha: 0.6) : AppColors.divider),
           ),
           child: Row(
             children: [
@@ -534,7 +542,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                         value: progress.percent,
                         minHeight: 3,
                         backgroundColor: Colors.white12,
-                        valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                        valueColor: AlwaysStoppedAnimation(palette.accent),
                       ),
                     ],
                     if (episode.plot.isNotEmpty)
@@ -556,7 +564,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                 ),
               const SizedBox(width: 8),
-              const Icon(Icons.play_circle_outline, color: AppColors.gold, size: 22),
+              Icon(Icons.play_circle_outline, color: palette.accent, size: 22),
             ],
           ),
         ),

@@ -82,6 +82,7 @@ class SortDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -93,7 +94,7 @@ class SortDropdown extends StatelessWidget {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: options.containsKey(value) ? value : 'default',
-          dropdownColor: AppColors.panelAlt,
+          dropdownColor: palette.panelAlt,
           iconEnabledColor: AppColors.textMuted,
           isDense: true,
           style: const TextStyle(color: AppColors.textPrimary, fontSize: 12.5),

@@ -42,7 +42,10 @@ Future<bool> requestPin(
         ),
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(controller.text == expected),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.blue, elevation: 0),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppPalette.of(context).accent,
+            elevation: 0,
+          ),
           child: const Text('Unlock'),
         ),
       ],

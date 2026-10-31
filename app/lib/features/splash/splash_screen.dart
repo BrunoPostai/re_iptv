@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../blocs/playlist_bloc.dart';
+import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
 import '../../core/theme/app_theme.dart';
@@ -66,12 +67,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     final storage = getIt<AppStorage>();
+    // The boot screen is the first frame of the chosen theme, not of the
+    // default one: the picture and the mark should already be the pair the
+    // viewer picked.
+    final theme = context.watch<SettingsBloc>().state.theme;
 
     return Scaffold(
       body: AppBackground(
-        image: config.defaultTheme.background,
+        image: theme.background,
         child: BlocListener<PlaylistBloc, PlaylistState>(
           listenWhen: (previous, current) =>
               previous.ready != current.ready ||
@@ -97,18 +103,18 @@ class _SplashScreenState extends State<SplashScreen> {
                         height: 110,
                         child: Image.asset(
                           config.branding.logo,
-                          errorBuilder: (_, __, ___) => const Icon(
+                          errorBuilder: (_, __, ___) => Icon(
                             Icons.play_circle_outline,
                             size: 84,
-                            color: AppColors.gold,
+                            color: palette.accent,
                           ),
                         ),
                       ),
                       const SizedBox(height: 18),
                       Text(
                         config.branding.appName,
-                        style: const TextStyle(
-                          color: AppColors.gold,
+                        style: TextStyle(
+                          color: palette.accent,
                           fontSize: 26,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.4,
@@ -157,7 +163,7 @@ class _SplashScreenState extends State<SplashScreen> {
                                     value: state.syncProgress == 0 ? null : state.syncProgress,
                                     minHeight: 4,
                                     backgroundColor: Colors.white12,
-                                    valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                                    valueColor: AlwaysStoppedAnimation(palette.accent),
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
@@ -213,6 +219,7 @@ class _IdentityPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: fitWidth(context, 430),
       padding: const EdgeInsets.all(16),
@@ -224,7 +231,7 @@ class _IdentityPanel extends StatelessWidget {
       child: Column(
         children: [
           InfoRow(label: 'Mac Address', value: mac),
-          InfoRow(label: 'Device Key', value: deviceKey, color: AppColors.gold),
+          InfoRow(label: 'Device Key', value: deviceKey, color: palette.accent),
           InfoRow(label: 'Device Id', value: deviceId.isEmpty ? '—' : deviceId),
         ],
       ),

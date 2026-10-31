@@ -233,7 +233,7 @@ class _ReplayBodyState extends State<_ReplayBody> {
           }),
           trailing: Text(
             '${channel.archiveDuration}d',
-            style: const TextStyle(color: AppColors.gold, fontSize: 11),
+            style: TextStyle(color: AppPalette.of(context).accent, fontSize: 11),
           ),
         );
       },
@@ -269,10 +269,11 @@ class _ReplayPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: AppColors.sidebar,
+        color: palette.sidebar,
         border: width == null
             ? null
             : const Border(left: BorderSide(color: AppColors.divider)),
@@ -282,10 +283,10 @@ class _ReplayPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'CATCH UP',
               style: TextStyle(
-                color: AppColors.gold,
+                color: palette.accent,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -359,7 +360,7 @@ class _ReplayPanel extends StatelessWidget {
                 max: 240,
                 divisions: (240 - 15) ~/ 15,
                 label: formatMinutes(duration),
-                activeColor: AppColors.gold,
+                activeColor: palette.accent,
                 inactiveColor: Colors.white24,
                 onChanged: (value) => onDuration(value.round()),
               ),

@@ -433,11 +433,11 @@ class _LiveBodyState extends State<_LiveBody> {
           onTap: () => _select(channel),
           onLongPress: () => _play(channel),
           trailing: channel.hasArchive
-              ? const Padding(
+              ? Padding(
                   padding: EdgeInsets.only(right: 4),
                   child: Tooltip(
                     message: 'Catch up available',
-                    child: Icon(Icons.history, size: 15, color: AppColors.gold),
+                    child: Icon(Icons.history, size: 15, color: AppPalette.of(context).accent),
                   ),
                 )
               : null,
@@ -477,10 +477,11 @@ class _DetailsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: AppColors.sidebar,
+        color: palette.sidebar,
         // A divider only separates the panel from something to its left.
         border: width == null
             ? null
@@ -503,8 +504,8 @@ class _DetailsPanel extends StatelessWidget {
                   Text(
                     channel!.name,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.gold,
+                    style: TextStyle(
+                      color: palette.accent,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -521,10 +522,10 @@ class _DetailsPanel extends StatelessWidget {
                   const SizedBox(height: 14),
                   AccentButton(label: 'Watch', icon: Icons.play_arrow, onPressed: onPlay),
                   const Divider(height: 28, color: AppColors.divider),
-                  const Text(
+                  Text(
                     'PROGRAMME GUIDE',
                     style: TextStyle(
-                      color: AppColors.gold,
+                      color: palette.accent,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1,
@@ -829,6 +830,7 @@ class _GuideListState extends State<_GuideList> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     if (widget.loading) return const LoadingBlock();
     if (widget.epg.isEmpty) {
       return const Text(
@@ -848,10 +850,10 @@ class _GuideListState extends State<_GuideList> {
           padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: now
-                ? AppColors.blue.withValues(alpha: 0.28)
+                ? palette.accent.withValues(alpha: 0.28)
                 : Colors.black.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: now ? AppColors.gold : AppColors.divider),
+            border: Border.all(color: now ? palette.accent : AppColors.divider),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -863,7 +865,7 @@ class _GuideListState extends State<_GuideList> {
                         ? '${_clock(program.start)} - ${_clock(program.end)}'
                         : 'Time unavailable',
                     style: TextStyle(
-                      color: now ? AppColors.gold : AppColors.textMuted,
+                      color: now ? palette.accent : AppColors.textMuted,
                       fontSize: 10.5,
                       fontWeight: now ? FontWeight.w700 : FontWeight.w400,
                     ),

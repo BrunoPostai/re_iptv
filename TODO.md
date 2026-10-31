@@ -821,6 +821,27 @@ put the app upright again on the detail screen behind it.
 
 ---
 
+## 24. A theme is a paint job, not a background swap — `[x]`
+
+Choosing Gold Honor recoloured the wallpaper and left everything drawn on top of it
+blue: headings, tile labels, the selected tab, the ring under the cursor, the progress
+bar, the buttons. The three themes had been written as pictures, and the palette was a
+constant that only the default theme happened to agree with.
+
+**Done:** the palette became a `ThemeExtension` built by `AppTheme.build` from whatever
+theme is active, and every screen reads `context.palette` instead of `AppColors`. It
+carries the accent, an `accentBright` (38% toward white) for lettering on dark surfaces,
+and an `accentDeep` (45% toward black) for edges that should not glare. Surfaces are
+tinted from the accent too — panels 18% over `#152740`, the sidebar 16% over `#0A1420`
+— so the tiles, dialogs and drawers belong to the theme rather than sit on it. Filled
+buttons read `inkOn`: white lettering below a luminance of 0.18, black above it, which
+is what lets the gold Watch button carry black text and the blue one keep white.
+
+**To check:** switching theme should repaint the whole app at once, including the boot
+screen, which now draws the chosen theme's wallpaper rather than the default one.
+
+---
+
 ## Backlog
 
 - Preview: optional custom "offline" image via `branding`, if the built-in card

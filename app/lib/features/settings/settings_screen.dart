@@ -214,6 +214,7 @@ class SettingsScreen extends StatelessWidget {
   // ------------------------------------------------------------------ dialogs
 
   Future<void> _showThemes(BuildContext context) async {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     final settings = context.read<SettingsBloc>();
     await showDialog<void>(
@@ -240,7 +241,7 @@ class SettingsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                         color: theme.id == settings.state.theme.id
-                            ? AppColors.gold
+                            ? palette.accent
                             : AppColors.divider,
                         width: theme.id == settings.state.theme.id ? 1.6 : 1,
                       ),
@@ -283,6 +284,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showLanguages(BuildContext context) async {
+    final palette = context.palette;
     final settings = context.read<SettingsBloc>();
     final languages = await L10n.available();
     if (!context.mounted) return;
@@ -304,10 +306,10 @@ class SettingsScreen extends StatelessWidget {
                   language.name,
                   style: TextStyle(
                     fontSize: 13,
-                    color: selected ? AppColors.gold : AppColors.textPrimary,
+                    color: selected ? palette.accent : AppColors.textPrimary,
                   ),
                 ),
-                trailing: selected ? const Icon(Icons.check, size: 16, color: AppColors.gold) : null,
+                trailing: selected ? Icon(Icons.check, size: 16, color: palette.accent) : null,
                 onTap: () {
                   settings.add(LanguageChanged(language.code));
                   Navigator.of(dialogContext).pop();
@@ -327,6 +329,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showStreamFormat(BuildContext context) async {
+    final palette = context.palette;
     final settings = context.read<SettingsBloc>();
     const options = {
       'default': 'Default (as provided by the server)',
@@ -351,7 +354,7 @@ class SettingsScreen extends StatelessWidget {
                         : Icons.radio_button_unchecked,
                     size: 18,
                     color: settings.state.streamFormat == entry.key
-                        ? AppColors.gold
+                        ? palette.accent
                         : AppColors.textMuted,
                   ),
                   title: Text(
@@ -374,6 +377,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showSubtitleSettings(BuildContext context) async {
+    final palette = context.palette;
     final settings = context.read<SettingsBloc>();
     await showDialog<void>(
       context: context,
@@ -398,7 +402,7 @@ class SettingsScreen extends StatelessWidget {
                     max: 60,
                     divisions: 50,
                     label: '$size pt',
-                    activeColor: AppColors.gold,
+                    activeColor: palette.accent,
                     inactiveColor: Colors.white24,
                     onChanged: (value) {
                       settings.add(SubtitleSizeChanged(value.round()));
@@ -481,6 +485,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showParental(BuildContext context) async {
+    final palette = context.palette;
     final settings = context.read<SettingsBloc>();
     final controller = TextEditingController(text: settings.state.pin);
     final result = await showDialog<String>(
@@ -515,7 +520,11 @@ class SettingsScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.blue, elevation: 0),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: palette.accent,
+              foregroundColor: inkOn(palette.accent),
+              elevation: 0,
+            ),
             child: const Text('Save'),
           ),
         ],
@@ -525,6 +534,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showHideCategories(BuildContext context, ContentKind kind) async {
+    final palette = context.palette;
     final playlist = getIt<PlaylistRepository>().active;
     if (playlist == null) return;
     final categories = await getIt<ContentRepository>().categories(playlist, kind);
@@ -554,7 +564,7 @@ class SettingsScreen extends StatelessWidget {
                       return CheckboxListTile(
                         dense: true,
                         value: hidden,
-                        activeColor: AppColors.gold,
+                        activeColor: palette.accent,
                         title: Text(
                           category.name,
                           style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
@@ -596,6 +606,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showAbout(BuildContext context) async {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     await showDialog<void>(
       context: context,
@@ -619,7 +630,7 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               SelectableText(
                 config.branding.website,
-                style: const TextStyle(fontSize: 12, color: AppColors.gold),
+                style: TextStyle(fontSize: 12, color: palette.accent),
               ),
               const SizedBox(height: 12),
               // The `data\app.so` timestamp: the quickest way to tell whether the
@@ -640,6 +651,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showAccount(BuildContext context) async {
+    final palette = context.palette;
     final storage = getIt<AppStorage>();
     await showDialog<void>(
       context: context,
@@ -650,7 +662,7 @@ class SettingsScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              InfoRow(label: 'Device Key', value: storage.deviceKey, color: AppColors.gold),
+              InfoRow(label: 'Device Key', value: storage.deviceKey, color: palette.accent),
               InfoRow(label: 'Mac Address', value: storage.macAddress),
               InfoRow(label: 'Device Id', value: storage.deviceId),
             ],
@@ -680,6 +692,7 @@ class _VolumeSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -692,7 +705,7 @@ class _VolumeSlider extends StatelessWidget {
                 max: 100,
                 divisions: 20,
                 label: '${volume.round()}%',
-                activeColor: AppColors.gold,
+                activeColor: palette.accent,
                 inactiveColor: Colors.white24,
                 onChanged: (value) => onChanged(value.roundToDouble()),
               ),

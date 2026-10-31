@@ -71,6 +71,7 @@ class _PosterCardState extends State<PosterCard> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
@@ -86,7 +87,7 @@ class _PosterCardState extends State<PosterCard> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: _hovered ? AppColors.gold : AppColors.divider,
+                    color: _hovered ? palette.accent : AppColors.divider,
                     width: _hovered ? 1.6 : 1,
                   ),
                 ),
@@ -106,7 +107,7 @@ class _PosterCardState extends State<PosterCard> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.star, size: 11, color: AppColors.gold),
+                              Icon(Icons.star, size: 11, color: palette.accent),
                               const SizedBox(width: 3),
                               Text(
                                 widget.rating!.toStringAsFixed(1),
@@ -151,7 +152,7 @@ class _PosterCardState extends State<PosterCard> {
                           value: widget.progress!.clamp(0.0, 1.0),
                           minHeight: 3,
                           backgroundColor: Colors.black.withValues(alpha: 0.5),
-                          valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                          valueColor: AlwaysStoppedAnimation(palette.accent),
                         ),
                       ),
                   ],
@@ -213,6 +214,7 @@ class _ChannelRowState extends State<ChannelRow> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
@@ -226,7 +228,7 @@ class _ChannelRowState extends State<ChannelRow> {
           decoration: BoxDecoration(
             color: _hovered ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.22),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: _hovered ? AppColors.gold.withValues(alpha: 0.55) : AppColors.divider),
+            border: Border.all(color: _hovered ? palette.accent.withValues(alpha: 0.55) : AppColors.divider),
           ),
           child: Row(
             children: [
@@ -252,9 +254,9 @@ class _ChannelRowState extends State<ChannelRow> {
                 ),
               ),
               if (widget.locked)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(left: 6),
-                  child: Icon(Icons.lock_outline, size: 14, color: AppColors.gold),
+                  child: Icon(Icons.lock_outline, size: 14, color: palette.accent),
                 ),
               if (widget.trailing != null) widget.trailing!,
               if (widget.onToggleFavorite != null)

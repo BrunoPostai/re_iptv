@@ -40,10 +40,11 @@ class _CategorySidebarState extends State<CategorySidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: widget.width,
-      decoration: const BoxDecoration(
-        color: AppColors.sidebar,
+      decoration: BoxDecoration(
+        color: palette.sidebar,
         border: Border(right: BorderSide(color: AppColors.divider)),
       ),
       child: Column(
@@ -101,6 +102,7 @@ class _CategoryRowTileState extends State<_CategoryRowTile> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final selected = widget.selected;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -113,11 +115,11 @@ class _CategoryRowTileState extends State<_CategoryRowTile> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.blue.withValues(alpha: 0.45)
+                ? palette.accent.withValues(alpha: 0.45)
                 : (_hovered ? Colors.white.withValues(alpha: 0.06) : Colors.transparent),
             borderRadius: BorderRadius.circular(4),
             border: selected
-                ? const Border(left: BorderSide(color: AppColors.gold, width: 3))
+                ? Border(left: BorderSide(color: palette.accent, width: 3))
                 : null,
           ),
           child: Row(
@@ -144,12 +146,12 @@ class _CategoryRowTileState extends State<_CategoryRowTile> {
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   margin: const EdgeInsets.only(right: 5),
                   decoration: BoxDecoration(
-                    color: AppColors.gold.withValues(alpha: 0.18),
+                    color: palette.accent.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(3),
                   ),
-                  child: const Text(
+                  child: Text(
                     'PIN',
-                    style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: palette.accent, fontSize: 8, fontWeight: FontWeight.bold),
                   ),
                 ),
               Text(

@@ -58,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final config = getIt<AppConfig>();
     final settings = context.watch<SettingsBloc>().state;
     final theme = settings.theme;
@@ -120,10 +121,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 120,
                                   child: Image.asset(
                                     config.branding.logo,
-                                    errorBuilder: (_, __, ___) => const Icon(
+                                    errorBuilder: (_, __, ___) => Icon(
                                       Icons.play_circle_outline,
                                       size: 92,
-                                      color: AppColors.gold,
+                                      color: palette.accent,
                                     ),
                                   ),
                                 ),
@@ -207,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             value: state.syncProgress == 0 ? null : state.syncProgress,
                             minHeight: 3,
                             backgroundColor: Colors.white10,
-                            valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                            valueColor: AlwaysStoppedAnimation(palette.accent),
                           ),
                         ),
                       Padding(

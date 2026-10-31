@@ -66,6 +66,7 @@ class _AppTitleBarState extends State<AppTitleBar> with WindowListener {
     // The status bar overlaps the body on mobile, so the bar grows by that much
     // and keeps its own content clear of it.
     final topInset = PlatformWindow.isMobile ? MediaQuery.paddingOf(context).top : 0.0;
+    final palette = context.palette;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (_) => PlatformWindow.startDragging(),
@@ -73,13 +74,13 @@ class _AppTitleBarState extends State<AppTitleBar> with WindowListener {
       child: Container(
         height: 38 + topInset,
         padding: EdgeInsets.only(top: topInset),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xF20A1A2E), Color(0xF20E2138)],
+            colors: [palette.panel, palette.panelAlt],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
-          border: Border(bottom: BorderSide(color: AppColors.divider)),
+          border: const Border(bottom: BorderSide(color: AppColors.divider)),
         ),
         child: Row(
           children: [
