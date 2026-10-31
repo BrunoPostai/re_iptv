@@ -915,7 +915,66 @@ carried the debug build must be uninstalled once before it will take this one.
 
 ---
 
+## 28. An iOS target, written where it cannot be built — `[~]`
+
+The Android port left the Dart side already mobile-shaped: `PlatformWindow.isMobile`
+includes iOS, every `window_manager` call is behind `isDesktop`, the compact layouts
+key off width alone. What was missing was everything Apple-specific, and none of it
+can be compiled here — Xcode runs only on macOS, so this section is a starting point
+someone has to finish on a Mac rather than a build that has been seen working.
+
+**Done:** `app/ios/` generated from the same Flutter version the rest of the project
+uses (`flutter create --platforms=ios --org com.reiptv --project-name re_iptv` in a
+temporary directory, with only `ios/` copied in, so the working tree was not rewritten
+underneath the existing platforms), and `app/.metadata` taught about the new platform.
+
+- `media_kit_libs_ios_video` added to `pubspec.yaml`. Without it the player has no
+  libmpv on iOS and video simply does not start.
+- `CFBundleDisplayName` is `REIPTV`, not the `Re Iptv` the template derived from the
+  package name.
+- `NSAppTransportSecurity → NSAllowsArbitraryLoads`, the counterpart of
+  `android:usesCleartextTraffic`: providers still hand out `http://` playlist and logo
+  URLs, which iOS blocks by default. Without it the first thing a new user sees is a
+  playlist that will not load.
+- The bundle id is `com.reiptv.reIptv`, which Flutter chose: iOS does not allow
+  underscores, so it cannot be Android's `com.reiptv.re_iptv`.
+- `tools/make_app_icons.py` renders the whole `AppIcon.appiconset` from the branding
+  mark at 1024 px and resamples down, so the icon is full bleed and the OS does the
+  rounding — a rounded plate inside Apple's own rounded mask would show canvas corners
+  and round twice. `make_branding.py` grew the `full_bleed` flag that draws it.
+- The launch screen is the app's dark background instead of the template's white,
+  which was the one guaranteed visual glitch on first run.
+
+**To check** on a Mac, in the order they are likely to bite:
+
+- `flutter build ios --no-codesign` first: it writes `ios/Podfile` and runs `pod install`,
+  because most plugins here ship podspecs only. `media_kit_libs_ios_video` downloads the
+  libmpv xcframeworks from GitHub during that step (network, a few hundred MB,
+  `curl`/`make`/`shasum`), so a first build on a plane will fail.
+- Open `Runner.xcworkspace`, choose a team under *Signing & Capabilities*, run on a
+  device. A free Apple ID works and expires in seven days.
+- Play a live channel and a film: picture and sound, seek, track selection, and the
+  player's landscape lock. On an iPad, `setPreferredOrientations` is ignored in split
+  view, so the landscape player may not turn.
+- Add the provider's playlist over `http://` to prove the ATS exception is doing its
+  job; then check a logo loads, since they come from the same host.
+- Every compact screen needs a way out that is not the Android back button: the title
+  bar arrow, the drawer, and the player's own close button. `PopScope` does nothing
+  here.
+- Safe areas on a notched phone: the drawer under the status bar, the bottom bar above
+  the home indicator, the player's controls clear of both.
+- App Store submission, if it ever goes that way, needs a privacy manifest
+  (`PrivacyInfo.xcprivacy`) for the file-timestamp and UserDefaults APIs the app and
+  its plugins touch; sideloading does not.
+
+---
+
 ## Backlog
 
+- Android still uses the launcher icon `flutter create` made: Flutter's logo, on the
+  home screen and in the app drawer. iOS now has a proper one (`tools/make_app_icons.py`);
+  Android needs an adaptive icon (`mipmap-anydpi-v26` with foreground and background
+  layers) rather than a flat bitmap, or the mark is clipped by whatever shape the
+  launcher masks it to.
 - Preview: optional custom "offline" image via `branding`, if the built-in card
   is not wanted.

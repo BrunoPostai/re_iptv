@@ -20,7 +20,7 @@ branding** — no vendor artwork, names or content is included.
 
 ```
 re_iptv/
-├─ app/          Flutter application (Windows desktop; Android/iOS ready)
+├─ app/          Flutter application (Windows desktop, Android, iOS)
 │  ├─ lib/
 │  │  ├─ core/          config, theme, i18n, DI, utils
 │  │  ├─ data/          models, Xtream/M3U sources, repositories, Hive storage
@@ -31,6 +31,8 @@ re_iptv/
 │  │  ├─ config/        app_config.json  ← personalisation
 │  │  ├─ branding/      neutral placeholder logo/backgrounds (regenerable)
 │  │  └─ languages/     en.json + index.json
+│  ├─ android/          Gradle project — release key in key.properties
+│  ├─ ios/              Xcode project — prepared here, built on a Mac
 │  ├─ test/             unit tests
 │  └─ tool/             hive_dump.dart (local database inspector)
 ├─ docs/
@@ -128,6 +130,47 @@ keytool -genkeypair -v -keystore re_iptv-release.jks -storetype PKCS12 `
 Losing it means every phone must uninstall the app — and its saved playlists —
 before the next build can be installed.
 
+## Building (iOS)
+
+The iOS target is prepared but unproven: it was written on Windows, where
+nothing Apple can compile, sign or run. The first real build happens on a Mac,
+and the first real build is also the first chance to find whatever is wrong with
+`ios/`.
+
+Requirements: macOS with Xcode 15+, CocoaPods (`brew install cocoapods`), and an
+Apple ID added to Xcode under *Settings → Accounts*.
+
+```bash
+cd app
+flutter pub get
+flutter build ios --no-codesign   # first run: writes ios/Podfile, downloads libmpv
+open ios/Runner.xcworkspace       # Runner → Signing & Capabilities → pick a team
+flutter run                       # or: flutter build ipa
+```
+
+The first build installs the video libraries: `media_kit_libs_ios_video` fetches
+the libmpv frameworks from GitHub while CocoaPods resolves, so it needs network
+and a few hundred megabytes of disk. Flutter writes the `ios/Podfile` itself the
+first time it sees a plugin that only ships a podspec — which is most of them
+here. Do that before opening the workspace, or `Runner.xcworkspace` has no Pods
+project in it and the plugins do not link.
+
+What is already set up, and why:
+
+| | |
+|---|---|
+| Bundle id | `com.reiptv.reIptv` — iOS forbids underscores, so it cannot match Android's `com.reiptv.re_iptv`. They are separate apps as far as a store is concerned. |
+| Orientations | portrait and both landscapes, because the player turns the phone for a film and the rest of the app is laid out upright. |
+| App Transport Security | `NSAllowsArbitraryLoads`, the counterpart of `android:usesCleartextTraffic`. Providers still serve `http://` playlists and logos, which iOS blocks by default. |
+| Display name | `REIPTV`, from `CFBundleDisplayName`. |
+| Icons | `Runner/Assets.xcassets/AppIcon.appiconset`, rendered from the branding mark by `python tools/make_app_icons.py`. |
+| Launch screen | the app's own dark background, so the first half-second is not a white flash. |
+
+Getting it onto an iPhone without a paid account: a free Apple ID team signs
+builds that expire after seven days and cover three apps, installed through
+Xcode, [Sideloadly](https://sideloadly.io) or AltStore on this machine. A paid
+account removes the expiry. No `.ipa` is kept in this repository.
+
 ## Personalising
 
 Everything user-visible lives in `app/assets/config/app_config.json`
@@ -150,8 +193,10 @@ Out of the box the app calls itself **REIPTV** — set `branding.app_name` and
 | Programme guide + live preview | done |
 | Storage schema parity with the original | verified against a real database |
 | `flutter analyze` | clean |
-| Tests | 25 passing (models, EPG parsing, config merge, Xtream/M3U parsing, URL builders, auth) |
+| Tests | 85 passing (models, EPG parsing, config merge, Xtream/M3U parsing, URL builders, auth, layout breakpoints) |
 | Windows release build | succeeds |
+| Android release build | succeeds; signed with the release key, running on a phone (Android 16) |
+| iOS | target written (`app/ios/`), never compiled — no Mac here |
 | End-to-end playback on a live provider | needs your playlist — not part of the automated checks |
 | Remaining | see [`TODO.md`](TODO.md); EPG grid view and multi-window are still open |
 

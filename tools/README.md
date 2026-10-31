@@ -7,6 +7,7 @@ reproducible and the placeholder assets regenerable.
 | Tool | What it does | Run |
 |---|---|---|
 | `make_branding.py` | regenerates the neutral placeholder logo and backgrounds into `app/assets/branding/` | `python tools/make_branding.py` |
+| `make_app_icons.py` | renders the iOS `AppIcon.appiconset` from the branding mark | `python tools/make_app_icons.py` |
 | `make_plugin_junctions.ps1` | creates the Windows plugin links as junctions, so a build works without Developer Mode | `powershell -ExecutionPolicy Bypass -File tools/make_plugin_junctions.ps1` |
 | `extract_strings.py` | prints printable strings from a local binary (filterable), used to recover class paths, endpoints and asset names | `python tools/extract_strings.py <binary> --grep player_api` |
 | `app/tool/hive_dump.dart` | prints a Hive box (settings or per-playlist content) as JSON, read-only | `cd app && dart run tool/hive_dump.dart <dir> <box>` |
@@ -21,6 +22,18 @@ dotted world map, gold accent).
 
 Edit the constants at the top of the file for different colours, or point
 `app_config.json` at your own images / `assets/branding/local/` instead.
+
+## `make_app_icons.py`
+
+Writes every size in `app/ios/Runner/Assets.xcassets/AppIcon.appiconset` from one
+1024 px master drawn by `make_branding.make_logo(..., full_bleed=True)`, reading
+the size list out of the catalogue's `Contents.json` so it cannot drift from what
+Xcode expects. Full bleed because the OS masks an icon to its own shape: a rounded
+plate inside a rounded mask shows the canvas at the corners and rounds twice.
+Flattened to RGB, because the App Store rejects an alpha channel.
+
+Android's launcher icon is still Flutter's default and is not touched by this
+script — see `TODO.md`. Run it again after changing the branding mark.
 
 ## `make_plugin_junctions.ps1`
 

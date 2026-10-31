@@ -39,3 +39,7 @@ hive_dump*.json
 Thumbs.db
 *.swp
 .vscode/
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc

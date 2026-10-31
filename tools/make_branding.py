@@ -134,21 +134,23 @@ def make_background(path, inner, outer, dots, spacing=15, alpha=110, dot_colour=
     print("wrote", path)
 
 
-def make_logo(path, size):
+def make_logo(path, size, full_bleed=False):
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    pad = int(size * 0.06)
-    radius = int(size * 0.22)
+    pad = 0 if full_bleed else int(size * 0.06)
+    radius = 0 if full_bleed else int(size * 0.22)
 
-    # Rounded plate with a diagonal gradient.
+    # Rounded plate with a diagonal gradient. A full-bleed plate has square
+    # corners and no rim: an app icon is masked by the OS, and a rounded plate
+    # inside a rounded mask would leave the canvas showing at the corners.
     plate = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     pdraw = ImageDraw.Draw(plate)
     pdraw.rounded_rectangle(
         [pad, pad, size - pad, size - pad],
         radius=radius,
         fill=BLUE + (255,),
-        outline=GOLD + (255,),
-        width=max(2, int(size * 0.014)),
+        outline=None if full_bleed else GOLD + (255,),
+        width=0 if full_bleed else max(2, int(size * 0.014)),
     )
     grad = Image.new("L", (size, size), 0)
     gdraw = ImageDraw.Draw(grad)

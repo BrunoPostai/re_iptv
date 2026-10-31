@@ -1,7 +1,8 @@
 # re_iptv (application)
 
-The Flutter client, for Windows and Android. Everything you need is in the repository root
-[`README.md`](../README.md); this file only covers working inside the package.
+The Flutter client, for Windows, Android and iOS. Everything you need is in the
+repository root [`README.md`](../README.md); this file only covers working inside
+the package.
 
 ## Run / build
 
@@ -11,6 +12,9 @@ flutter run -d windows
 flutter build windows --release     # -> build\windows\x64\runner\Release\re_iptv.exe
 flutter build apk --release         # -> build\app\outputs\flutter-apk\app-release.apk
 ```
+
+The iOS target only builds on macOS with Xcode; the root README says what it
+needs and what has not been tried yet.
 
 On a machine without Developer Mode, create the Windows plugin links as junctions
 first:
