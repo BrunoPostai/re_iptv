@@ -81,12 +81,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Row(
                           children: [
                             const LiveClock(),
-                            const Spacer(),
-                            StatusPill(
-                              label: 'Current Playlist Expired On:',
-                              value: state.auth?.expiryDateTime != null
-                                  ? formatDate(state.auth!.expiryDateTime!)
-                                  : '—',
+                            const SizedBox(width: 12),
+                            // A phone cannot give the expiry pill its full width
+                            // on the same line as the clock, and a fixed-width
+                            // child of a Row overflows rather than wrapping.
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: StatusPill(
+                                  label: 'Current Playlist Expired On:',
+                                  value: state.auth?.expiryDateTime != null
+                                      ? formatDate(state.auth!.expiryDateTime!)
+                                      : '—',
+                                ),
+                              ),
                             ),
                           ],
                         ),

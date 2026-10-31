@@ -129,8 +129,8 @@ class _SplashScreenState extends State<SplashScreen> {
                       BlocBuilder<PlaylistBloc, PlaylistState>(
                         builder: (context, state) {
                           if (state.error != null) {
-                            return const SizedBox(
-                              width: 360,
+                            return SizedBox(
+                              width: fitWidth(context, 360),
                               child: Text(
                                 'No playlist available. Add one to start watching.',
                                 textAlign: TextAlign.center,
@@ -139,8 +139,8 @@ class _SplashScreenState extends State<SplashScreen> {
                             );
                           }
                           if (state.active == null) {
-                            return const SizedBox(
-                              width: 360,
+                            return SizedBox(
+                              width: fitWidth(context, 360),
                               child: Text(
                                 'Preparing...',
                                 textAlign: TextAlign.center,
@@ -150,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           }
                           if (state.syncing) {
                             return SizedBox(
-                              width: 360,
+                              width: fitWidth(context, 360),
                               child: Column(
                                 children: [
                                   LinearProgressIndicator(
@@ -214,7 +214,7 @@ class _IdentityPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 430,
+      width: fitWidth(context, 430),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.35),

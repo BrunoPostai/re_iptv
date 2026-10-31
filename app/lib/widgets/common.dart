@@ -1,9 +1,20 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../core/platform/window_class.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
+
+/// [preferred] pixels, or the room actually available, whichever is smaller.
+///
+/// Several panels in this app were drawn at a fixed width on a desktop — a 430
+/// pixel identity card, a 560 pixel dialog — and a fixed width wider than the
+/// screen is an overflow. [inset] is what the surroundings already spend on
+/// padding.
+double fitWidth(BuildContext context, double preferred, {double inset = 32}) =>
+    math.min(preferred, MediaQuery.sizeOf(context).width - inset);
 
 /// Paints the configured background image behind a screen, with a dark scrim so
 /// that foreground content stays readable on any artwork.
@@ -118,6 +129,66 @@ class ScreenHeading extends StatelessWidget {
         const Spacer(),
         if (trailing != null) trailing!,
       ],
+    );
+  }
+}
+
+/// A screen's heading, search box and controls, laid out for the width at hand.
+///
+/// The desktop puts them on one line. A phone cannot: the search box alone is
+/// 250 of a 360 pixel screen, so there the controls ride with the heading and
+/// the search box takes the line below — the same arrangement the live screen
+/// arrived at by hand.
+class ScreenHeader extends StatelessWidget {
+  const ScreenHeader({
+    super.key,
+    required this.heading,
+    required this.search,
+    this.controls = const [],
+  });
+
+  final Widget heading;
+
+  /// Built with a null width to fill the line on a phone, or a fixed one on the
+  /// desktop; [SearchField] takes both.
+  final Widget search;
+
+  /// Sort order, reload, filters — these stay beside the heading when stacked,
+  /// because they are pressed rather than read.
+  final List<Widget> controls;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = WindowClass.of(context).isCompact;
+    final padding = EdgeInsets.fromLTRB(compact ? 14 : 18, 14, compact ? 14 : 18, 10);
+
+    if (!compact) {
+      return Padding(
+        padding: padding,
+        child: Row(
+          children: [
+            Expanded(child: heading),
+            search,
+            for (final control in controls) ...[const SizedBox(width: 10), control],
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: heading),
+              for (final control in controls) ...[const SizedBox(width: 6), control],
+            ],
+          ),
+          const SizedBox(height: 10),
+          search,
+        ],
+      ),
     );
   }
 }

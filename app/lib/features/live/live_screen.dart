@@ -256,7 +256,7 @@ class _LiveBodyState extends State<_LiveBody> {
       ),
     );
     final search = SearchField(
-      width: compact ? double.infinity : 250,
+      width: compact ? null : 250,
       hint: settings.l10n.t('search_hint'),
       onChanged: (value) => context.read<ContentBloc>().add(ContentQueryChanged(value)),
     );
@@ -313,37 +313,12 @@ class _LiveBodyState extends State<_LiveBody> {
                       ),
                   ],
                 ),
-                // The heading, search box, sort order and reload button are one
-                // row on the desktop. On a phone they are stacked, because the
-                // search box alone is 250 of a 360 pixel screen.
-                Padding(
-                  padding: EdgeInsets.fromLTRB(compact ? 14 : 18, 14, compact ? 14 : 18, 10),
-                  child: compact
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(child: heading),
-                                sort,
-                                const SizedBox(width: 6),
-                                reload,
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            search,
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(child: heading),
-                            search,
-                            const SizedBox(width: 10),
-                            sort,
-                            const SizedBox(width: 10),
-                            reload,
-                          ],
-                        ),
+                // On a phone the heading keeps the sort order and reload button
+                // beside it and the search box takes the line below.
+                ScreenHeader(
+                  heading: heading,
+                  search: search,
+                  controls: [sort, reload],
                 ),
                 Expanded(
                   child: compact

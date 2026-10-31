@@ -14,7 +14,10 @@ class SearchField extends StatefulWidget {
 
   final ValueChanged<String> onChanged;
   final String hint;
-  final double width;
+
+  /// Fixed width, or null to fill the width it is given — which is what a
+  /// stacked header on a phone asks for.
+  final double? width;
   final String initialValue;
   final ValueChanged<String>? onSubmitted;
 
@@ -33,33 +36,32 @@ class _SearchFieldState extends State<SearchField> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.width,
-      height: 34,
-      child: TextField(
-        controller: _controller,
-        onChanged: widget.onChanged,
-        onSubmitted: widget.onSubmitted,
-        style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          prefixIcon: const Icon(Icons.search, size: 16, color: AppColors.textMuted),
-          suffixIcon: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _controller,
-            builder: (context, value, _) => value.text.isEmpty
-                ? const SizedBox.shrink()
-                : GestureDetector(
-                    onTap: () {
-                      _controller.clear();
-                      widget.onChanged('');
-                    },
-                    child: const Icon(Icons.close, size: 15, color: AppColors.textMuted),
-                  ),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    // A null width fills whatever it is given, which is only meaningful inside a
+    // bounded parent — a stacked header, never a Row.
+    final field = TextField(
+      controller: _controller,
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
+      style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        hintText: widget.hint,
+        prefixIcon: const Icon(Icons.search, size: 16, color: AppColors.textMuted),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _controller,
+          builder: (context, value, _) => value.text.isEmpty
+              ? const SizedBox.shrink()
+              : GestureDetector(
+                  onTap: () {
+                    _controller.clear();
+                    widget.onChanged('');
+                  },
+                  child: const Icon(Icons.close, size: 15, color: AppColors.textMuted),
+                ),
         ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       ),
     );
+    return SizedBox(width: widget.width, height: 34, child: field);
   }
 }
 

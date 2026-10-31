@@ -213,7 +213,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Change theme', style: TextStyle(fontSize: 16)),
         content: SizedBox(
-          width: 560,
+          width: fitWidth(context, 560, inset: 128),
           child: Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -283,7 +283,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Change language', style: TextStyle(fontSize: 16)),
         content: SizedBox(
-          width: 420,
+          width: fitWidth(context, 420, inset: 128),
           height: 380,
           child: ListView.builder(
             itemCount: languages.length,
@@ -330,7 +330,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Stream format', style: TextStyle(fontSize: 16)),
         content: SizedBox(
-          width: 420,
+          width: fitWidth(context, 420, inset: 128),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -375,7 +375,7 @@ class SettingsScreen extends StatelessWidget {
           return AlertDialog(
             title: const Text('Subtitle settings', style: TextStyle(fontSize: 16)),
             content: SizedBox(
-              width: 420,
+              width: fitWidth(context, 420, inset: 128),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -438,7 +438,7 @@ class SettingsScreen extends StatelessWidget {
           return AlertDialog(
             title: const Text('Playback volume', style: TextStyle(fontSize: 16)),
             content: SizedBox(
-              width: 420,
+              width: fitWidth(context, 420, inset: 128),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -480,7 +480,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Parental control', style: TextStyle(fontSize: 16)),
         content: SizedBox(
-          width: 380,
+          width: fitWidth(context, 380, inset: 128),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -531,7 +531,7 @@ class SettingsScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 16),
           ),
           content: SizedBox(
-            width: 460,
+            width: fitWidth(context, 460, inset: 128),
             height: 420,
             child: categories.isEmpty
                 ? const Text(
@@ -594,7 +594,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: Text(config.branding.appName, style: const TextStyle(fontSize: 16)),
         content: SizedBox(
-          width: 460,
+          width: fitWidth(context, 460, inset: 128),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,7 +638,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('User account', style: TextStyle(fontSize: 16)),
         content: SizedBox(
-          width: 420,
+          width: fitWidth(context, 420, inset: 128),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

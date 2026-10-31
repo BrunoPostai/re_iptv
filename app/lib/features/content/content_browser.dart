@@ -6,6 +6,7 @@ import '../../blocs/playlist_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
@@ -78,42 +79,35 @@ class _BrowserBody extends StatelessWidget {
               logo: config.branding.logoSmall,
               onBack: () => Navigator.of(context).maybePop(),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: BlocBuilder<PlaylistBloc, PlaylistState>(
-                      builder: (context, playlistState) => ScreenHeading(
-                        title: heading,
-                        subtitle: playlistState.active?.name,
-                      ),
-                    ),
-                  ),
-                  SearchField(
-                    width: 250,
-                    hint: settings.l10n.t('search_hint'),
-                    onChanged: (value) =>
-                        context.read<ContentBloc>().add(ContentQueryChanged(value)),
-                  ),
-                  const SizedBox(width: 10),
-                  BlocBuilder<ContentBloc, ContentState>(
-                    builder: (context, state) => SortDropdown(
-                      value: state.sortType,
-                      onChanged: (value) {
-                        context.read<ContentBloc>().add(ContentSortChanged(value));
-                        context.read<SettingsBloc>().add(SortTypeChanged(value));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    tooltip: 'Reload from server',
-                    onPressed: () => context.read<ContentBloc>().add(const ContentRefreshed()),
-                    icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 20),
-                  ),
-                ],
+            ScreenHeader(
+              heading: BlocBuilder<PlaylistBloc, PlaylistState>(
+                builder: (context, playlistState) => ScreenHeading(
+                  title: heading,
+                  subtitle: playlistState.active?.name,
+                ),
               ),
+              search: SearchField(
+                width: WindowClass.of(context).isCompact ? null : 250,
+                hint: settings.l10n.t('search_hint'),
+                onChanged: (value) =>
+                    context.read<ContentBloc>().add(ContentQueryChanged(value)),
+              ),
+              controls: [
+                BlocBuilder<ContentBloc, ContentState>(
+                  builder: (context, state) => SortDropdown(
+                    value: state.sortType,
+                    onChanged: (value) {
+                      context.read<ContentBloc>().add(ContentSortChanged(value));
+                      context.read<SettingsBloc>().add(SortTypeChanged(value));
+                    },
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Reload from server',
+                  onPressed: () => context.read<ContentBloc>().add(const ContentRefreshed()),
+                  icon: const Icon(Icons.refresh, color: AppColors.textMuted, size: 20),
+                ),
+              ],
             ),
             Expanded(
               child: BlocBuilder<ContentBloc, ContentState>(

@@ -676,25 +676,58 @@ dating the build by the phone's own files.
 
 The screens are the second half. `WindowClass` splits widths into compact below 600,
 medium below 1024 and expanded above it, so the desktop — never narrower than
-`window.min_width` 1024 — keeps the layout it had. The live screen is the first to
+`window.min_width` 1024 — keeps the layout it had. The live screen was the first to
 use it: on a phone the 250 pixel category sidebar becomes a drawer and the 320 pixel
-details panel becomes the page, with back returning to the list, and the
-heading/search/sort row stacks because a 250 pixel search box does not share a 360
-pixel line. The details panel and the sidebar take a width now instead of
-hard-coding one, which is what lets the same widget be a column on the desktop and a
-page here.
+details panel becomes the page, with back returning to the list. Catch Up then
+followed it pane for pane, because the two screens are the same shape and somebody
+who has learnt one should not have to learn the other: the archive picker is the page
+once a channel is picked.
+
+The heading row is where the rest of the change went. The desktop puts a heading, a
+search box and the sort order on one line; a phone cannot, because the search box
+alone is 250 of a 360 pixel line, so the heading keeps the controls beside it and the
+search box takes the line below. `ScreenHeader` is that one widget now, and it
+replaced four hand-written rows — live, catch up, movies/series and search.
+`SearchField` takes a null width, meaning fill the line you were given, because a
+stacked line has no width to give it.
+
+The two detail pages came out differently, because they hold different things. A
+movie keeps its poster beside the text and shrinks it from 250 to 120, with the gaps
+and the padding to match. A series has more to show and cannot spare a 320 pixel
+column at all, so on a phone its details become the top of the page and the episodes
+follow them down it under an `EPISODES` heading — one scroll instead of two panes.
+
+Fixed widths were the other way this broke: a thing wider than the screen overflows
+rather than shrinks. `fitWidth` caps the settings dialogs (560, 460, 420 and 380
+pixels) and the splash's identity card and status lines at what is actually there;
+the home screen's expiry pill can now wrap beside the clock instead of running past
+the edge. The player gained what a phone needs to be watchable at all: a tap on the
+picture brings the control bar back, since there is no pointer to hover with, and ten
+second skips stand in for the arrow keys where there is no keyboard. The keys still
+work; the two share one `_seekBy` so they cannot drift apart.
+
+Setting any of this up was its own afternoon: JDK 17 and the SDK live outside the
+project — `C:\Users\you\Android\jdk17` and `C:\Users\you\Android\sdk`, both
+pointed at by `flutter config` — and the build wants an NDK that the toolchain does
+not fetch for itself, so `ndk;28.2.13676358` was installed by hand. None of that
+belongs in the repository, which is why it is written down here.
 
 **To check:** on a phone the live screen should show the channel list with no
 overflow banner, a categories button in the title bar, and a tap on a channel should
-open its preview, guide and Watch button with back returning to the list. Windows
-should be untouched: three panes, the same title bar, the same fullscreen.
+open its preview, guide and Watch button with back returning to the list. Catch up
+should behave the same way. Movies, series and search should stack their headings
+without the yellow-and-black overflow stripes; a movie page should fit its poster and
+text side by side; a series should read top to bottom, episodes under details;
+settings should open its dialogs without running off the screen. In the player a tap
+on the picture should bring the bar back, and the ten second buttons should move the
+film. Windows should be untouched: three panes, the same title bar, the same
+fullscreen.
 
-**Still open:** every other screen is still desktop-sized and will overflow — settings
-has blocks fixed at 560, 460 and 420, search has a 420 pixel field, the splash has a
-430 pixel column, and the movie and series pages put a 250 pixel poster beside their
-text. The player still assumes a keyboard: no tap zones for seeking, and no touch
-equivalent of space, F, I and Esc. Neither an APK nor an iOS build has happened yet;
-no Android SDK is installed on this machine, and iOS needs a Mac.
+**Still open:** the player's subtitle, audio and stats panels are still dialogs sized
+for a desktop, and seeking only goes ten seconds at a time rather than following a
+drag along the picture. The APK builds — 205 MB, because a debug build carries libmpv
+for four architectures — but nothing has been run on a phone yet, and iOS still needs
+a Mac.
 
 ---
 

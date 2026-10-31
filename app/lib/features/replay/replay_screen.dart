@@ -5,6 +5,7 @@ import '../../blocs/content_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
@@ -48,6 +49,10 @@ class _ReplayBodyState extends State<_ReplayBody> {
   TimeOfDay _time = TimeOfDay(hour: 12, minute: 0);
   int _duration = 60;
 
+  /// Opens the category drawer, which only exists when there is no room for a
+  /// sidebar beside the list.
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   bool get _hasArchive => _selected?.hasArchive ?? false;
 
   Future<void> _play() async {
@@ -86,59 +91,108 @@ class _ReplayBodyState extends State<_ReplayBody> {
     final config = getIt<AppConfig>();
     final settings = context.watch<SettingsBloc>().state;
     final window = _selected?.archiveDuration ?? 7;
+    final compact = WindowClass.of(context).isCompact;
 
-    return Scaffold(
-      body: AppBackground(
-        image: settings.theme.background,
-        child: Column(
-          children: [
-            AppTitleBar(
-              title: config.branding.windowTitle,
-              logo: config.branding.logoSmall,
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-              child: Row(
-                children: [
-                  const Expanded(child: ScreenHeading(title: 'Catch Up')),
-                  SearchField(
-                    width: 250,
+    final panel = _ReplayPanel(
+      width: compact ? null : 320,
+      channel: _selected,
+      date: _date,
+      time: _time,
+      duration: _duration,
+      maxDays: window,
+      onDate: (value) => setState(() => _date = value),
+      onTime: (value) => setState(() => _time = value),
+      onDuration: (value) => setState(() => _duration = value),
+      onPlay: _hasArchive ? _play : null,
+    );
+
+    return BlocBuilder<ContentBloc, ContentState>(
+      builder: (context, state) => PopScope(
+        // A phone shows the picker as the page, so back returns to the list of
+        // catch-up channels before it leaves the screen.
+        canPop: !compact || _selected == null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) setState(() => _selected = null);
+        },
+        child: Scaffold(
+          key: _scaffoldKey,
+          drawer: compact
+              ? Drawer(
+                  backgroundColor: AppColors.sidebar,
+                  child: SafeArea(
+                    child: Builder(
+                      builder: (drawerContext) => CategorySidebar(
+                        width: double.infinity,
+                        rows: state.rows,
+                        selectedId: state.selectedCategoryId,
+                        onSelected: (id) {
+                          Navigator.pop(drawerContext);
+                          context.read<ContentBloc>().add(ContentCategorySelected(id));
+                        },
+                        isHidden: settings.isHidden,
+                      ),
+                    ),
+                  ),
+                )
+              : null,
+          body: AppBackground(
+            image: settings.theme.background,
+            child: Column(
+              children: [
+                AppTitleBar(
+                  title: config.branding.windowTitle,
+                  logo: config.branding.logoSmall,
+                  onBack: () {
+                    if (compact && _selected != null) {
+                      setState(() => _selected = null);
+                      return;
+                    }
+                    Navigator.of(context).maybePop();
+                  },
+                  actions: [
+                    if (compact)
+                      IconButton(
+                        tooltip: 'Categories',
+                        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                        icon: const Icon(
+                          Icons.format_list_bulleted,
+                          color: AppColors.textMuted,
+                          size: 18,
+                        ),
+                      ),
+                  ],
+                ),
+                ScreenHeader(
+                  heading: const ScreenHeading(title: 'Catch Up'),
+                  search: SearchField(
+                    width: compact ? null : 250,
                     hint: settings.l10n.t('search_hint'),
                     onChanged: (value) =>
                         context.read<ContentBloc>().add(ContentQueryChanged(value)),
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: BlocBuilder<ContentBloc, ContentState>(
-                builder: (context, state) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    CategorySidebar(
-                      rows: state.rows,
-                      selectedId: state.selectedCategoryId,
-                      onSelected: (id) =>
-                          context.read<ContentBloc>().add(ContentCategorySelected(id)),
-                    ),
-                    Expanded(child: _buildChannelList(state)),
-                    _ReplayPanel(
-                      channel: _selected,
-                      date: _date,
-                      time: _time,
-                      duration: _duration,
-                      maxDays: window,
-                      onDate: (value) => setState(() => _date = value),
-                      onTime: (value) => setState(() => _time = value),
-                      onDuration: (value) => setState(() => _duration = value),
-                      onPlay: _hasArchive ? _play : null,
-                    ),
-                  ],
                 ),
-              ),
+                Expanded(
+                  child: compact
+                      ? (_selected == null ? _buildChannelList(state) : panel)
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CategorySidebar(
+                              rows: state.rows,
+                              selectedId: state.selectedCategoryId,
+                              onSelected: (id) => context
+                                  .read<ContentBloc>()
+                                  .add(ContentCategorySelected(id)),
+                              isHidden: settings.isHidden,
+                            ),
+                            Expanded(child: _buildChannelList(state)),
+                            panel,
+                          ],
+                        ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -195,8 +249,11 @@ class _ReplayPanel extends StatelessWidget {
     required this.onTime,
     required this.onDuration,
     required this.onPlay,
+    this.width = 320,
   });
 
+  /// A fixed column beside the channel list, or null to fill the page.
+  final double? width;
   final Channel? channel;
   final DateTime date;
   final TimeOfDay time;
@@ -210,10 +267,12 @@ class _ReplayPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 320,
-      decoration: const BoxDecoration(
+      width: width,
+      decoration: BoxDecoration(
         color: AppColors.sidebar,
-        border: Border(left: BorderSide(color: AppColors.divider)),
+        border: width == null
+            ? null
+            : const Border(left: BorderSide(color: AppColors.divider)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

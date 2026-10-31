@@ -7,6 +7,7 @@ import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/constants.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
@@ -208,18 +209,13 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
               logo: config.branding.logoSmall,
               onBack: () => Navigator.of(context).maybePop(),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-              child: Row(
-                children: [
-                  Expanded(child: ScreenHeading(title: settings.l10n.t('search'))),
-                  SearchField(
-                    width: 420,
-                    hint: settings.l10n.t('search_hint'),
-                    onChanged: _onQuery,
-                    onSubmitted: (_) => _search(),
-                  ),
-                ],
+            ScreenHeader(
+              heading: ScreenHeading(title: settings.l10n.t('search')),
+              search: SearchField(
+                width: WindowClass.of(context).isCompact ? null : 420,
+                hint: settings.l10n.t('search_hint'),
+                onChanged: _onQuery,
+                onSubmitted: (_) => _search(),
               ),
             ),
             Container(

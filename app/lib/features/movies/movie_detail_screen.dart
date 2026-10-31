@@ -6,6 +6,7 @@ import '../../blocs/content_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
@@ -126,6 +127,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   Widget build(BuildContext context) {
     final config = getIt<AppConfig>();
     final theme = context.watch<SettingsBloc>().state.theme;
+    // A phone cannot spare 250 pixels for a poster beside the plot: that leaves
+    // about 110 for the text. The poster becomes a thumbnail instead.
+    final compact = WindowClass.of(context).isCompact;
 
     return Scaffold(
       body: AppBackground(
@@ -142,12 +146,12 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               child: _loading
                   ? const LoadingBlock(message: 'Loading details...')
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(22),
+                      padding: EdgeInsets.all(compact ? 14 : 22),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(
-                            width: 250,
+                            width: compact ? 120 : 250,
                             child: Column(
                               children: [
                                 AspectRatio(
@@ -185,7 +189,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 26),
+                          SizedBox(width: compact ? 14 : 26),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

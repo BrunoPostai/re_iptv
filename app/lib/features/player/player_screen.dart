@@ -286,6 +286,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
     if (mounted) setState(() {});
   }
 
+  /// Moves the picture [delta] from where it is now, never before the start.
+  ///
+  /// Shared by the arrow keys and the ten second buttons so that both agree on
+  /// what a skip is, and both bring the controls back up after one.
+  void _seekBy(Duration delta) {
+    final bloc = _bloc;
+    if (bloc == null) return;
+    final target = (_last?.position ?? Duration.zero) + delta;
+    bloc.add(PlayerSeeked(target.isNegative ? Duration.zero : target));
+    _showOverlay();
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final bloc = _bloc;
@@ -295,13 +307,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
         bloc.add(const PlayerPlayPause());
         break;
       case LogicalKeyboardKey.arrowRight:
-        bloc.add(PlayerSeeked(
-          (_last?.position ?? Duration.zero) + const Duration(seconds: 10),
-        ));
+        _seekBy(const Duration(seconds: 10));
         break;
       case LogicalKeyboardKey.arrowLeft:
-        final target = (_last?.position ?? Duration.zero) - const Duration(seconds: 10);
-        bloc.add(PlayerSeeked(target.isNegative ? Duration.zero : target));
+        _seekBy(const Duration(seconds: -10));
         break;
       case LogicalKeyboardKey.keyF:
         _toggleFullscreen();
@@ -411,6 +420,16 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
                         fill: Colors.black,
                       ),
                     ),
+                    // A phone has no pointer to hover with, so the bar never came
+                    // back once it faded. This layer sits above the picture and
+                    // below the overlay: a tap on bare picture brings the controls
+                    // up, and a tap on a control still reaches the control.
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _showOverlay,
+                      ),
+                    ),
                     BlocBuilder<PlayerBloc, PlayerState>(
                       buildWhen: _overlayNeedsRebuild,
                       builder: (context, state) {
@@ -502,6 +521,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WindowListener {
                                   onNext: _hasNext ? _nextEpisode : null,
                                   nextLabel: _nextLabel,
                                   onReplay: _replay,
+                                  onSeek: _seekBy,
                                 ),
                               ),
                             ),
@@ -572,6 +592,7 @@ class _Overlay extends StatelessWidget {
     required this.onNext,
     required this.nextLabel,
     required this.onReplay,
+    required this.onSeek,
   });
 
   final PlayerState state;
@@ -588,6 +609,10 @@ class _Overlay extends StatelessWidget {
   final VoidCallback? onNext;
   final String? nextLabel;
   final VoidCallback onReplay;
+
+  /// Relative seek, in the direction of the sign — what the ten second buttons
+  /// ask for where there is no arrow key to press.
+  final ValueChanged<Duration> onSeek;
 
   @override
   Widget build(BuildContext context) {
@@ -723,6 +748,13 @@ class _Overlay extends StatelessWidget {
                       onTap: onPrevious!,
                       size: 26,
                     ),
+                  if (!state.isLive && !PlatformWindow.isDesktop)
+                    _ControlButton(
+                      icon: Icons.replay_10,
+                      tooltip: 'Back 10 seconds',
+                      onTap: () => onSeek(const Duration(seconds: -10)),
+                      size: 24,
+                    ),
                   _ControlButton(
                     icon: state.completed
                         ? Icons.replay
@@ -735,6 +767,13 @@ class _Overlay extends StatelessWidget {
                         : () => bloc.add(const PlayerPlayPause()),
                     size: 30,
                   ),
+                  if (!state.isLive && !PlatformWindow.isDesktop)
+                    _ControlButton(
+                      icon: Icons.forward_10,
+                      tooltip: 'Forward 10 seconds',
+                      onTap: () => onSeek(const Duration(seconds: 10)),
+                      size: 24,
+                    ),
                   if (onNext != null)
                     _ControlButton(
                       icon: Icons.skip_next,

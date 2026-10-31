@@ -6,6 +6,7 @@ import '../../blocs/content_bloc.dart';
 import '../../blocs/settings_bloc.dart';
 import '../../core/config/app_config.dart';
 import '../../core/di/injector.dart';
+import '../../core/platform/window_class.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/content_repository.dart';
@@ -195,6 +196,9 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
   Widget build(BuildContext context) {
     final config = getIt<AppConfig>();
     final theme = context.watch<SettingsBloc>().state.theme;
+    // A phone has no room for a column beside a list: the details come first
+    // and the episodes follow them down the same page.
+    final compact = WindowClass.of(context).isCompact;
     final info = _info;
     final series = info?.series ?? widget.series;
     final episodes = _season == null ? const <Episode>[] : (info?.episodes[_season] ?? const <Episode>[]);
@@ -213,6 +217,59 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
             Expanded(
               child: _loading
                   ? const LoadingBlock(message: 'Loading episodes...')
+                  : compact
+                  ? SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: _details(series, info, episodes),
+                            ),
+                          ),
+                          if (episodes.isNotEmpty)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(14, 0, 14, 8),
+                              child: Text(
+                                'EPISODES',
+                                style: TextStyle(
+                                  color: AppColors.gold,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                          Container(
+                            color: Colors.black.withValues(alpha: 0.22),
+                            child: episodes.isEmpty
+                                ? const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 26),
+                                    child: EmptyBlock(
+                                      message: 'No episodes found for this season.',
+                                      icon: Icons.video_library_outlined,
+                                    ),
+                                  )
+                                : Padding(
+                                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+                                    child: Column(
+                                      children: [
+                                        for (final episode in episodes)
+                                          _EpisodeTile(
+                                            episode: episode,
+                                            progress: _progress[ContentRepository.episodeProgressId(
+                                                series.seriesId, episode.streamId)],
+                                            onTap: () => _play(episode, series),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    )
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -222,151 +279,7 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                             padding: const EdgeInsets.all(22),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(
-                                      width: 116,
-                                      child: AspectRatio(
-                                        aspectRatio: 2 / 3,
-                                        child: SmartImage(
-                                          path: series.cover,
-                                          fallbackText: series.name,
-                                          showBorder: true,
-                                          borderRadius: 8,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            series.name,
-                                            style: const TextStyle(
-                                              color: AppColors.gold,
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          if (series.rating5Based > 0)
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.star, size: 13, color: AppColors.gold),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  series.rating5Based.toStringAsFixed(1),
-                                                  style: const TextStyle(
-                                                    color: AppColors.textPrimary,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          if (series.releaseDate.isNotEmpty)
-                                            Text(
-                                              series.releaseDate,
-                                              style: const TextStyle(
-                                                color: AppColors.textMuted,
-                                                fontSize: 11.5,
-                                              ),
-                                            ),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-                                              if (info != null && info.seasons.isNotEmpty)
-                                                Expanded(
-                                                  child: DropdownButtonHideUnderline(
-                                                    child: DropdownButton<int>(
-                                                      value: _season,
-                                                      dropdownColor: AppColors.panelAlt,
-                                                      isDense: true,
-                                                      style: const TextStyle(
-                                                        color: AppColors.textPrimary,
-                                                        fontSize: 12.5,
-                                                      ),
-                                                      items: [
-                                                        for (final s in info.seasons)
-                                                          DropdownMenuItem(
-                                                            value: s,
-                                                            child: Text('Season $s'),
-                                                          ),
-                                                      ],
-                                                      onChanged: (value) =>
-                                                          setState(() => _season = value),
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: AccentButton(
-                                        label: 'Play first episode',
-                                        icon: Icons.play_arrow,
-                                        onPressed: episodes.isEmpty
-                                            ? null
-                                            : () => _play(episodes.first, series),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      onPressed: _toggleFavorite,
-                                      tooltip: _favorite
-                                          ? 'Remove from favourites'
-                                          : 'Add to favourites',
-                                      icon: Icon(
-                                        _favorite ? Icons.favorite : Icons.favorite_border,
-                                        color: _favorite ? AppColors.red : AppColors.textMuted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (series.plot.isNotEmpty) ...[
-                                  const SizedBox(height: 18),
-                                  const Text(
-                                    'PLOT',
-                                    style: TextStyle(
-                                      color: AppColors.gold,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    series.plot,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 12.5,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ],
-                                if (series.genre.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  InfoRow(label: 'Genre', value: series.genre),
-                                ],
-                                if (series.cast.isNotEmpty) InfoRow(label: 'Cast', value: series.cast),
-                                if (series.youtubeTrailer.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  OutlineButtonX(
-                                    label: 'Watch trailer',
-                                    icon: Icons.ondemand_video,
-                                    onPressed: () => _openTrailer(series.youtubeTrailer),
-                                  ),
-                                ],
-                              ],
+                              children: _details(series, info, episodes),
                             ),
                           ),
                         ),
@@ -383,13 +296,10 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                                     itemCount: episodes.length,
                                     itemBuilder: (context, index) {
                                       final episode = episodes[index];
-                                      final id =
-                                          ContentRepository.episodeProgressId(
-                                              series.seriesId, episode.streamId);
-                                      final progress = _progress[id];
                                       return _EpisodeTile(
                                         episode: episode,
-                                        progress: progress,
+                                        progress: _progress[ContentRepository.episodeProgressId(
+                                            series.seriesId, episode.streamId)],
                                         onTap: () => _play(episode, series),
                                       );
                                     },
@@ -403,6 +313,158 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
         ),
       ),
     );
+  }
+
+  /// Cover, title, season picker, actions and metadata.
+  ///
+  /// One column on the desktop, where it sits beside the episode list; the top
+  /// of the page on a phone, where there is no room to sit beside anything.
+  List<Widget> _details(Series series, SeriesInfo? info, List<Episode> episodes) {
+    return <Widget>[
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 116,
+            child: AspectRatio(
+              aspectRatio: 2 / 3,
+              child: SmartImage(
+                path: series.cover,
+                fallbackText: series.name,
+                showBorder: true,
+                borderRadius: 8,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  series.name,
+                  style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (series.rating5Based > 0)
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 13, color: AppColors.gold),
+                      const SizedBox(width: 4),
+                      Text(
+                        series.rating5Based.toStringAsFixed(1),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (series.releaseDate.isNotEmpty)
+                  Text(
+                    series.releaseDate,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    if (info != null && info.seasons.isNotEmpty)
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: _season,
+                            dropdownColor: AppColors.panelAlt,
+                            isDense: true,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12.5,
+                            ),
+                            items: [
+                              for (final s in info.seasons)
+                                DropdownMenuItem(
+                                  value: s,
+                                  child: Text('Season $s'),
+                                ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => _season = value),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Expanded(
+            child: AccentButton(
+              label: 'Play first episode',
+              icon: Icons.play_arrow,
+              onPressed: episodes.isEmpty
+                  ? null
+                  : () => _play(episodes.first, series),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: _toggleFavorite,
+            tooltip: _favorite
+                ? 'Remove from favourites'
+                : 'Add to favourites',
+            icon: Icon(
+              _favorite ? Icons.favorite : Icons.favorite_border,
+              color: _favorite ? AppColors.red : AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+      if (series.plot.isNotEmpty) ...[
+        const SizedBox(height: 18),
+        const Text(
+          'PLOT',
+          style: TextStyle(
+            color: AppColors.gold,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          series.plot,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 12.5,
+            height: 1.5,
+          ),
+        ),
+      ],
+      if (series.genre.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        InfoRow(label: 'Genre', value: series.genre),
+      ],
+      if (series.cast.isNotEmpty) InfoRow(label: 'Cast', value: series.cast),
+      if (series.youtubeTrailer.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        OutlineButtonX(
+          label: 'Watch trailer',
+          icon: Icons.ondemand_video,
+          onPressed: () => _openTrailer(series.youtubeTrailer),
+        ),
+      ],
+    ];
   }
 }
 
