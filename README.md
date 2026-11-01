@@ -36,9 +36,8 @@ history for good:
 | `re_iptv-<version>-universal.apk` | any Android phone |
 | `re_iptv-<version>-arm64.apk` | recent phones; the same app, ~36 MB lighter |
 
-This repository is private, so that link only works for people who have been given
-access to it. Neither build is code-signed: Windows says *"Windows protected your
-PC"* (*More info → Run anyway*) and Android's Play Protect asks to install anyway.
+Neither build is code-signed: Windows says *"Windows protected your PC"*
+(*More info → Run anyway*) and Android's Play Protect asks to install anyway.
 
 Building from source is under [Building (Windows)](#building-windows),
 [Building (Android)](#building-android) and [Building (iOS)](#building-ios).
